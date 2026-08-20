@@ -8,7 +8,54 @@
     <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
+    // DADOS DE ACESSO PADRÃO (Para testes sem Firebase Auth)
+const USUARIO_PADRAO = "admin";
+const SENHA_PADRAO = "bourbon123";
+
+// Verificar estado de login ao carregar a página
+document.addEventListener('DOMContentLoaded', () => {
+    verificarSessaoLogin();
+    // ... manter o restante das inicializações (carregarEstoqueAB, etc.)
+});
+
+function autenticarUsuario(event) {
+    event.preventDefault();
+    const usuarioInput = document.getElementById('loginUsuario').value.trim();
+    const senhaInput = document.getElementById('loginSenha').value.trim();
+    const msgErro = document.getElementById('loginErro');
+
+    // Validação de credenciais
+    if (usuarioInput === USUARIO_PADRAO && senhaInput === SENHA_PADRAO) {
+        msgErro.style.display = 'none';
+        
+        // Salva a sessão no navegador
+        sessionStorage.setItem('usuarioLogado', usuarioInput);
+        
+        // Oculta a tela de login
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('formLogin').reset();
+    } else {
+        msgErro.style.display = 'block';
+    }
+}
+
+function verificarSessaoLogin() {
+    const usuarioLogado = sessionStorage.getItem('usuarioLogado');
+    const overlay = document.getElementById('loginOverlay');
+
+    if (usuarioLogado) {
+        overlay.style.display = 'none';
+    } else {
+        overlay.style.display = 'flex';
+    }
+}
+
+function fazerLogout() {
+    if (confirm("Deseja realmente sair do sistema?")) {
+        sessionStorage.removeItem('usuarioLogado');
+        document.getElementById('loginOverlay').style.display = 'flex';
+    }
+}
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -36,6 +83,8 @@
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            <!-- Adicionar dentro do <header> no canto direito junto ao #userInfo -->
+            <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem; margin-left: 10px;" onclick="fazerLogout()">🚪 Sair</button>
         }
 
         header h1 { font-size: 1.5rem; font-weight: 600; }
@@ -160,9 +209,84 @@
             position: relative;
         }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #888; }
+    
+    /* Tela de Login Tela Cheia */
+#loginOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.login-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.login-card img {
+    height: 60px;
+    margin-bottom: 1rem;
+}
+
+.login-card h2 {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-card .form-group {
+    text-align: left;
+    margin-bottom: 1rem;
+}
+
+.login-card button {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.login-error {
+    color: var(--danger-color);
+    font-size: 0.85rem;
+    margin-top: 0.8rem;
+    display: none;
+}
+    
+    
+    
     </style>
 </head>
 <body>
+<!-- TELA DE LOGIN -->
+<div id="loginOverlay">
+    <div class="login-card">
+        <img src="logo.png" alt="Bourbon Logo">
+        <h2>Acesso ao Sistema A&B</h2>
+        <form id="formLogin" onsubmit="autenticarUsuario(event)">
+            <div class="form-group">
+                <label for="loginUsuario">Usuário / E-mail:</label>
+                <input type="text" id="loginUsuario" required placeholder="Digite seu usuário">
+            </div>
+            <div class="form-group">
+                <label for="loginSenha">Senha:</label>
+                <input type="password" id="loginSenha" required placeholder="Digite sua senha">
+            </div>
+            <button type="submit" class="btn btn-primary">Entrar</button>
+            <p id="loginErro" class="login-error">Usuário ou senha incorretos!</p>
+        </form>
+    </div>
+</div>
+
 
     <header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background-color: #00463F; color: white;">
     <div style="display: flex; align-items: center; gap: 16px;">
@@ -927,7 +1051,6 @@
             abrirModal('modalDevolucao');
         }
 
-        // --- FUNÇÃO DE DEVOLUÇÃO CORRIGIDA ---
         function confirmarDevolucaoAB(event) {
             event.preventDefault();
 
@@ -1111,18 +1234,18 @@
             }
 
             let novaQtdTotal = item.qtdTotal;
-if (tipoMovimento !== 'emprestimo') {
-    novaQtdTotal = item.qtdTotal - qtdSaida;
-}
+            if (tipoMovimento !== 'emprestimo') {
+                novaQtdTotal = item.qtdTotal - qtdSaida;
+            }
             
             const novaQtdDisponivel = item.qtdDisponivel - qtdSaida;
             const dataHoraAtual = new Date().toLocaleString('pt-BR');
 
             if (firebaseAtivo) {
                 refEstoque.child(itemId).update({ 
-    qtdTotal: novaQtdTotal,
-    qtdDisponivel: novaQtdDisponivel 
-})
+                    qtdTotal: novaQtdTotal,
+                    qtdDisponivel: novaQtdDisponivel 
+                })
                     .then(() => {
                         if (tipoMovimento === 'emprestimo') {
                             return refEmUso.push().set({
@@ -1146,6 +1269,7 @@ if (tipoMovimento !== 'emprestimo') {
                         if (btn) { btn.disabled = false; btn.innerHTML = '✅ Confirmar Saída'; }
                     });
             } else {
+                item.qtdTotal = novaQtdTotal;
                 item.qtdDisponivel = novaQtdDisponivel;
                 localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
 
@@ -1270,6 +1394,7 @@ if (tipoMovimento !== 'emprestimo') {
             });
 
             const ctxTipo = document.getElementById('chartTiposEstoque');
+            if (ctxTipo) {
                 if (chartTipoInstance) chartTipoInstance.destroy();
                 chartTipoInstance = new Chart(ctxTipo, {
                     type: 'pie',

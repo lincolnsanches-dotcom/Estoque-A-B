@@ -160,19 +160,94 @@
             position: relative;
         }
         .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #888; }
+    
+        /* Tela de Login Tela Cheia */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .login-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card img {
+            height: 60px;
+            margin-bottom: 1rem;
+        }
+
+        .login-card h2 {
+            color: var(--primary-color);
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-card .form-group {
+            text-align: left;
+            margin-bottom: 1rem;
+        }
+
+        .login-card button {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .login-error {
+            color: var(--danger-color);
+            font-size: 0.85rem;
+            margin-top: 0.8rem;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-    <header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background-color: #00463F; color: white;">
-    <div style="display: flex; align-items: center; gap: 16px;">
-        <img src="logo.png" alt="Bourbon Logo" style="height: 50px; width: auto; object-fit: contain; border: none; background: transparent; display: block;">
-        <div>
-            <h1 id="appTitle" style="margin: 0; font-size: 1.3rem; font-weight: 700; line-height: 1.2;">Controle de Estoque A&B</h1>
-            <p style="margin: 2px 0 0 0; font-size: 0.85rem; opacity: 0.85;">Gestão Corporativa & Steward</p>
+    <!-- TELA DE LOGIN -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <img src="logo.png" alt="Bourbon Logo">
+            <h2>Acesso ao Sistema A&B</h2>
+            <form id="formLogin" onsubmit="autenticarUsuario(event)">
+                <div class="form-group">
+                    <label for="loginUsuario">Usuário / E-mail:</label>
+                    <input type="text" id="loginUsuario" required placeholder="Digite seu usuário">
+                </div>
+                <div class="form-group">
+                    <label for="loginSenha">Senha:</label>
+                    <input type="password" id="loginSenha" required placeholder="Digite sua senha">
+                </div>
+                <button type="submit" class="btn btn-primary">Entrar</button>
+                <p id="loginErro" class="login-error">Usuário ou senha incorretos!</p>
+            </form>
         </div>
     </div>
-    <div id="userInfo" style="font-size:0.9rem; text-align: right;">Unidade: <span id="lblUnidadeHeader">Bourbon Atibaia</span></div>
+
+    <header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background-color: #00463F; color: white;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <img src="logo.png" alt="Bourbon Logo" style="height: 50px; width: auto; object-fit: contain; border: none; background: transparent; display: block;">
+            <div>
+                <h1 id="appTitle" style="margin: 0; font-size: 1.3rem; font-weight: 700; line-height: 1.2;">Controle de Estoque A&B</h1>
+                <p style="margin: 2px 0 0 0; font-size: 0.85rem; opacity: 0.85;">Gestão Corporativa & Steward</p>
+            </div>
+        </div>
+        <div id="userInfo" style="font-size:0.9rem; text-align: right; display: flex; align-items: center;">
+            Unidade: <span id="lblUnidadeHeader" style="margin-left: 5px;">Bourbon Atibaia</span>
+            <button class="btn btn-danger" style="padding: 3px 10px; font-size: 0.75rem; margin-left: 15px;" onclick="fazerLogout()">🚪 Sair</button>
+        </div>
     </header>
 
     <nav class="tabs">
@@ -561,15 +636,19 @@
     </div>
 
     <script>
-        // Insira aqui suas credenciais reais do Firebase
+        // DADOS DE ACESSO PADRÃO
+        const USUARIO_PADRAO = "admin";
+        const SENHA_PADRAO = "bourbon123";
+
+        // Credenciais do seu projeto Firebase (estoque-ab)
         const firebaseConfig = {
-            apiKey: "SUA_API_KEY",
-            authDomain: "SEU_PROJECT.firebaseapp.com",
-            databaseURL: "https://SEU_PROJECT-default-rtdb.firebaseio.com",
-            projectId: "SEU_PROJECT",
-            storageBucket: "SEU_PROJECT.appspot.com",
-            messagingSenderId: "SEU_SENDER_ID",
-            appId: "SEU_APP_ID"
+            apiKey: "AIzaSyAxT9BxBXs44FEyGJsLfK3JBnvEdRG-B-U",
+            authDomain: "estoque-ab.firebaseapp.com",
+            databaseURL: "https://estoque-ab-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "estoque-ab",
+            storageBucket: "estoque-ab.firebasestorage.app",
+            messagingSenderId: "221785613355",
+            appId: "1:221785613355:web:a422352739c6ccff28766e"
         };
 
         let db = null;
@@ -610,12 +689,48 @@
         let desenhando = false;
 
         document.addEventListener('DOMContentLoaded', () => {
+            verificarSessaoLogin();
             carregarEstoqueAB();
             carregarEmUsoAB();
             carregarMovimentacoesAB();
             inicializarCanvasAssinatura();
         });
 
+        /* --- LÓGICA DE LOGIN & AUTENTICAÇÃO --- */
+        function autenticarUsuario(event) {
+            event.preventDefault();
+            const usuarioInput = document.getElementById('loginUsuario').value.trim();
+            const senhaInput = document.getElementById('loginSenha').value.trim();
+            const msgErro = document.getElementById('loginErro');
+
+            if (usuarioInput === USUARIO_PADRAO && senhaInput === SENHA_PADRAO) {
+                if (msgErro) msgErro.style.display = 'none';
+                sessionStorage.setItem('usuarioLogado', usuarioInput);
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('formLogin').reset();
+            } else {
+                if (msgErro) msgErro.style.display = 'block';
+            }
+        }
+
+        function verificarSessaoLogin() {
+            const usuarioLogado = sessionStorage.getItem('usuarioLogado');
+            const overlay = document.getElementById('loginOverlay');
+            if (usuarioLogado) {
+                overlay.style.display = 'none';
+            } else {
+                overlay.style.display = 'flex';
+            }
+        }
+
+        function fazerLogout() {
+            if (confirm("Deseja realmente sair do sistema?")) {
+                sessionStorage.removeItem('usuarioLogado');
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        }
+
+        /* --- NAVEGAÇÃO E UTILS --- */
         function trocarGuia(tabId, evt) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
