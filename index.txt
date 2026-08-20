@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque & Auditoria - Steward | Bourbon Hotels</title>
+    
+    <!-- Biblioteca para assinatura digital -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+
+    <!-- Chart.js para o Dashboard de Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SDKs do Firebase (Versão Compatível Web) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #00463f; /* Verde Oficial Bourbon */
+            --primary-dark: #002d29;
+            --primary-light: #006057;
+            --accent: #d97706;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f4f7f6;
+            --card: #ffffff;
+            --text: #0f172a;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: var(--bg); color: var(--text); padding-bottom: 50px; }
+
+        /* TELA DE LOGIN E REGISTRO DE UNIDADE */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--primary-dark);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card img { height: 50px; margin-bottom: 10px; }
+        .login-card h2 { color: var(--primary); font-size: 1.1rem; margin-bottom: 5px; }
+        .login-card p { font-size: 0.8rem; color: #64748b; margin-bottom: 15px; }
+
+        .login-tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
+        .login-tab-btn { flex: 1; padding: 8px; border: none; background: #f1f5f9; color: #64748b; font-weight: bold; font-size: 0.8rem; cursor: pointer; border-radius: 6px 6px 0 0; }
+        .login-tab-btn.active { background: var(--primary); color: white; }
+
+        header { 
+            background: var(--primary); 
+            color: white; 
+            padding: 18px 20px; 
+            text-align: center; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+        }
+
+        .header-logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .header-logo-container > div {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .header-logo { height: 52px; width: auto; object-fit: contain; display: block; }
+        header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
+        header p { font-size: 0.85rem; opacity: 0.9; margin: 0; }
+
+        .status-bar {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border-bottom: 1px solid #a7f3d0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .unit-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #ffffff;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #065f46;
+            color: var(--primary-dark);
+        }
+
+        .unit-selector-container select, .select-modulo-topo {
+            border: none;
+            outline: none;
+            font-weight: bold;
+            color: var(--primary-dark);
+            background: transparent;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .select-modulo-topo {
+            background: #ffffff;
+            border: 1px solid #065f46;
+            border-radius: 6px;
+            padding: 4px 10px;
+            color: var(--primary-dark);
+        }
+
+        .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
+
+        /* Navegação por Abas Dinâmicas */
+        .nav-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 2px solid #cbd5e1; overflow-x: auto; }
+        .tab-btn { flex: 1; padding: 12px 8px; border: none; background: #e2e8f0; color: #475569; font-weight: bold; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 0.85rem; transition: 0.2s; white-space: nowrap; }
+        .tab-btn.active { background: var(--primary); color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards e Formulários */
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .card h2 { font-size: 1.1rem; color: var(--primary); margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; flex-wrap: wrap; gap: 10px; }
+
+        .form-group { margin-bottom: 12px; text-align: left; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; }
+        .form-group input:disabled { background-color: #f1f5f9; cursor: not-allowed; border-color: #e2e8f0; color: #64748b; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        /* Dashboard Grid & Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .kpi-card { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; border-left: 5px solid var(--primary); }
+        .kpi-card.accent { border-left-color: var(--accent); }
+        .kpi-card.danger { border-left-color: var(--danger); }
+        .kpi-title { font-size: 0.8rem; color: #64748b; font-weight: bold; text-transform: uppercase; }
+        .kpi-value { font-size: 1.6rem; font-weight: bold; color: var(--text); margin-top: 5px; }
+
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+        .chart-box { background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .chart-box h3 { font-size: 0.95rem; color: var(--primary-dark); margin-bottom: 10px; text-align: center; }
+
+        /* BUSCADOR DE ITENS COM FOTO NA SAÍDA */
+        .search-input { width: 100%; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; outline: none; background: #f0fdf4; }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            max-height: 280px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .select-card {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .select-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+        .select-card.selected { border-color: var(--success); background: #f0fdf4; box-shadow: 0 0 0 2px var(--success); }
+        
+        .select-card-img { 
+            width: 100%; 
+            height: 80px; 
+            object-fit: contain; 
+            border-radius: 6px; 
+            background: #ffffff; 
+            padding: 4px;
+            border: 1px solid #f1f5f9;
+            margin-bottom: 6px; 
+        }
+        .select-card-title { font-size: 0.75rem; font-weight: bold; color: var(--text); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 28px; }
+        .select-card-badge { font-size: 0.7rem; color: var(--success); font-weight: bold; margin-top: 4px; }
+
+        /* Preview do Item Selecionado */
+        .preview-item-card {
+            display: none;
+            align-items: center;
+            gap: 15px;
+            background: #f0fdf4;
+            border: 2px solid var(--success);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+        .preview-item-card.active { display: flex; }
+        .preview-item-img { width: 70px; height: 70px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; padding: 4px; }
+        .preview-item-info { flex: 1; font-size: 0.85rem; }
+        .preview-item-title { font-weight: bold; color: var(--primary); font-size: 0.95rem; margin-bottom: 3px; }
+
+        /* Botões */
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; border-radius: 6px; }
+        .btn-excel { background: #15803d; color: white; width: auto; padding: 8px 16px; font-size: 0.85rem; }
+        .btn-clear { background: #94a3b8; color: white; padding: 6px 12px; font-size: 0.8rem; margin-top: 5px; width: auto; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Área de Assinatura */
+        .signature-container { border: 2px dashed #cbd5e1; border-radius: 8px; background: #fafafa; text-align: center; padding: 10px; }
+        canvas { border: 1px solid #ccc; background: #fff; width: 100%; height: 150px; border-radius: 6px; touch-action: none; }
+
+        /* Grid de Estoque Geral */
+        .grid-itens { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; }
+        .item-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; position: relative; }
+        .item-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .item-img { width: 100%; height: 140px; object-fit: contain; background: #ffffff; padding: 8px; border-bottom: 1px solid #f1f5f9; }
+        .item-info { padding: 12px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .item-title { font-weight: bold; font-size: 0.9rem; color: var(--primary-dark); }
+        .item-loc { font-size: 0.8rem; color: var(--accent); font-weight: 600; margin-top: 2px; }
+        .item-qtd { font-size: 0.8rem; margin-top: 8px; display: flex; justify-content: space-between; border-top: 1px solid #f1f5f9; padding-top: 6px; }
+
+        /* Cards de Empréstimos e Pedidos */
+        .emp-card { border-left: 4px solid var(--accent); background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .emp-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; }
+        .emp-detail { font-size: 0.85rem; color: #475569; margin-top: 4px; }
+        .emp-sig-preview { width: 90px; height: 35px; border: 1px solid #cbd5e1; object-fit: contain; background: #fff; border-radius: 4px; margin-top: 4px; }
+
+        /* Tabelas e Controles de Relatórios */
+        .relatorio-filters { background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .filter-row input, .filter-row select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+        .btn-filter-status { padding: 6px 12px; border: 1px solid #cbd5e1; background: #fff; border-radius: 20px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-filter-status.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .pagination-container { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 0.85rem; color: #475569; }
+        .pagination-buttons { display: flex; gap: 5px; }
+        .btn-page { padding: 5px 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; cursor: pointer; }
+        .btn-page.active { background: var(--primary); color: white; font-weight: bold; }
+        .btn-page:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .table-responsive { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+        th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        th { background: #f1f5f9; color: #334155; font-weight: bold; }
+
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .badge-solicitado { background: #e0f2fe; color: #0369a1; }
+        .badge-separado { background: #fef3c7; color: #b45309; }
+        .badge-pendente { background: #fed7aa; color: #c2410c; }
+        .badge-ok { background: #dcfce7; color: #15803d; }
+        .badge-avaria { background: #fee2e2; color: #991b1b; }
+
+        /* Modais */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 15px; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #fff; border-radius: 12px; max-width: 500px; width: 100%; padding: 20px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .modal-close { position: absolute; top: 12px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b; }
+        .modal-img { width: 100%; height: 180px; object-fit: contain; border-radius: 8px; margin-bottom: 15px; background: #ffffff; padding: 6px; border: 1px solid #e2e8f0; }
+        
+        .box-resumo-saida { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 0.85rem; }
+
+        .photo-preview-box { display: none; align-items: center; gap: 10px; margin-top: 10px; background: #f1f5f9; padding: 8px; border-radius: 6px; }
+        .photo-preview-box.active { display: flex; }
+        .photo-preview-box img { width: 50px; height: 50px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #cbd5e1; }
+
+        footer { text-align: center; padding: 15px 20px; margin-top: 40px; font-size: 0.85rem; color: #4b5563; border-top: 1px solid #e5e7eb; }
+        footer strong { color: #065f46; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN E REGISTRO DE UNIDADE -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-card">
+            <img src="logo1.png" alt="Bourbon Hotels" onerror="this.src='https://via.placeholder.com/180x50?text=Bourbon+Resort'">
+            <h2>Controle de Estoque & Auditoria</h2>
+            <p>Selecione a unidade e entre com sua conta</p>
+
+            <div class="login-tabs">
+                <button type="button" class="login-tab-btn active" onclick="alternarAbaLogin('ENTRAR')">🔑 Entrar</button>
+                <button type="button" class="login-tab-btn" onclick="alternarAbaLogin('CRIAR')">➕ Criar Usuário / Hotel</button>
+            </div>
+            
+            <!-- FORMULÁRIO DE LOGIN -->
+            <form id="formLogin" onsubmit="validarLogin(event)">
+                <div class="form-group">
+                    <label>🏨 Selecione a Unidade / Hotel:</label>
+                    <select id="loginUnidade" required onchange="verificarIdiomaHotel(this.value)">
+                        <option value="atibaia" selected>Bourbon Resort Atibaia – Atibaia / SP</option>
+                        <option value="foz_thermas">Bourbon Thermas Eco Resort Cataratas – Foz do Iguaçu / PR</option>
+                        <option value="curitiba_hoteis">Bourbon Hotéis & Suítes Curitiba – Curitiba / PR</option>
+                        <option value="curitiba_dom_ricardo">Bourbon Hotel Dom Ricardo | Aeroporto – São José dos Pinhais / PR</option>
+                        <option value="joinville">Bourbon Convention Hotel Joinville – Joinville / SC</option>
+                        <option value="ponta_grossa">Bourbon Convention Hotel Ponta Grossa – Ponta Grossa / PR</option>
+                        <option value="santos">Bourbon Convention Hotel Santos – Santos / SP</option>
+                        <option value="belo_horizonte">Bourbon Hotel Belo Horizonte – Belo Horizonte / MG</option>
+                        <option value="barra_tijuca">Bourbon Residence Barra da Tijuca – Rio de Janeiro / RJ</option>
+                        <option value="fortaleza">Bourbon Hotel Fortaleza – Fortaleza / CE</option>
+                        <option value="cambara">Bourbon Hotel Cambará – Cambará / PR</option>
+                        <option value="londrina">Bourbon Hotel Londrina – Londrina / PR</option>
+                        <option value="jl_foz">JL Hotel by Bourbon – Foz do Iguaçu / PR</option>
+                        <option value="rio_campinas">Rio Hotel by Bourbon Campinas – Campinas / SP</option>
+                        <option value="rio_indaiatuba">Rio Hotel by Bourbon Indaiatuba – Indaiatuba / SP</option>
+                        <option value="rio_curitiba_aero">Rio Hotel by Bourbon Curitiba Aeroporto – São José dos Pinhais / PR</option>
+                        <option value="rio_curitiba">Rio Hotel by Bourbon Curitiba – Curitiba / PR</option>
+                        <option value="rio_batel">Rio Hotel by Bourbon Batel – Curitiba / PR</option>
+                        <option value="rio_maringa">Rio Hotel by Bourbon Maringá – Maringá / PR</option>
+                        <option value="central_park_cascavel">Central Park Hotel by Bourbon – Cascavel / PR</option>
+                        <option value="asuncion">Gran Bourbon Hotel Asunción – Assunção / PY</option>
+                        <option value="ciudad_del_este">Rio Hotel by Bourbon Ciudad del Este – Ciudad del Este / PY</option>
+                        <option value="buenos_aires">Bourbon Exclusive Jardín Escondido by Coppola – Buenos Aires / AR</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Usuário:</label>
+                    <input type="text" id="loginUsuario" placeholder="Digite o usuário..." required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Senha:</label>
+                    <input type="password" id="loginSenha" placeholder="Digite a senha..." required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 15px;">🚀 Acessar Sistema</button>
+            </form>
+
+            <!-- FORMULÁRIO DE CRIAR CONTA / NOVO HOTEL -->
+            <form id="formCriarConta" style="display:none;" onsubmit="criarNovoUsuario(event)">
+                <div class="form-group">
+                    <label>🏨 Unidade:</label>
+                    <select id="cadUserUnidade" required>
+                        <option value="atibaia">Bourbon Resort Atibaia – Atibaia / SP</option>
+                        <option value="foz_thermas">Bourbon Thermas Eco Resort Cataratas – Foz do Iguaçu / PR</option>
+                        <option value="curitiba_hoteis">Bourbon Hotéis & Suítes Curitiba – Curitiba / PR</option>
+                        <option value="curitiba_dom_ricardo">Bourbon Hotel Dom Ricardo | Aeroporto – São José dos Pinhais / PR</option>
+                        <option value="joinville">Bourbon Convention Hotel Joinville – Joinville / SC</option>
+                        <option value="ponta_grossa">Bourbon Convention Hotel Ponta Grossa – Ponta Grossa / PR</option>
+                        <option value="santos">Bourbon Convention Hotel Santos – Santos / SP</option>
+                        <option value="belo_horizonte">Bourbon Hotel Belo Horizonte – Belo Horizonte / MG</option>
+                        <option value="barra_tijuca">Bourbon Residence Barra da Tijuca – Rio de Janeiro / RJ</option>
+                        <option value="fortaleza">Bourbon Hotel Fortaleza – Fortaleza / CE</option>
+                        <option value="cambara">Bourbon Hotel Cambará – Cambará / PR</option>
+                        <option value="londrina">Bourbon Hotel Londrina – Londrina / PR</option>
+                        <option value="jl_foz">JL Hotel by Bourbon – Foz do Iguaçu / PR</option>
+                        <option value="rio_campinas">Rio Hotel by Bourbon Campinas – Campinas / SP</option>
+                        <option value="rio_indaiatuba">Rio Hotel by Bourbon Indaiatuba – Indaiatuba / SP</option>
+                        <option value="rio_curitiba_aero">Rio Hotel by Bourbon Curitiba Aeroporto – São José dos Pinhais / PR</option>
+                        <option value="rio_curitiba">Rio Hotel by Bourbon Curitiba – Curitiba / PR</option>
+                        <option value="rio_batel">Rio Hotel by Bourbon Batel – Curitiba / PR</option>
+                        <option value="rio_maringa">Rio Hotel by Bourbon Maringá – Maringá / PR</option>
+                        <option value="central_park_cascavel">Central Park Hotel by Bourbon – Cascavel / PR</option>
+                        <option value="asuncion">Gran Bourbon Hotel Asunción – Assunção / PY</option>
+                        <option value="ciudad_del_este">Rio Hotel by Bourbon Ciudad del Este – Ciudad del Este / PY</option>
+                        <option value="buenos_aires">Bourbon Exclusive Jardín Escondido by Coppola – Buenos Aires / AR</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>👤 Perfil do Usuário:</label>
+                    <select id="cadUserPerfil">
+                        <option value="steward">🧑‍🍳 Equipe Steward / Almoxarifado (Gerenciamento Completo)</option>
+                        <option value="solicitante">🍽️ Solicitante / Eventos / Garçom (Consulta Total e Solicitação)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Novo Usuário:</label>
+                        <input type="text" id="cadUserUsuario" placeholder="Digite o usuário..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Senha:</label>
+                        <input type="password" id="cadUserSenha" placeholder="Digite a senha..." required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-accent" style="margin-top: 10px;">💾 Cadastrar Conta & Configurar</button>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- CABEÇALHO BOURBON -->
+    <header>
+        <div class="header-logo-container">
+            <img src="logo.png" alt="Bourbon Hotels" class="header-logo" onerror="this.style.display='none'">
+            <div>
+                <h1>Controle Integrado de Enxoval, Louças e Mobiliário</h1>
+                <p>Bourbon Hotels & Resorts • Controle Integrado de Patrimônio</p>
+            </div>
+        </div>
+    </header>
+    
+    <div class="status-bar">
+        <div class="unit-selector-container">
+            <!-- SERÁ PREENCHIDO DINAMICAMENTE PELO JAVASCRIPT CONFORME O LOGIN -->
+        </div>
+
+        <!-- SELETOR DE MÓDULO OPERACIONAL NO TOPO DA BARRA -->
+        <select id="seletorModuloOperacao" class="select-modulo-topo" onchange="alternarModuloOperacao(this.value)">
+            <option value="BALCAO">🚪 Módulo: Balcão (Saída Direta)</option>
+            <option value="EVENTOS">📋 Módulo: Solicitação & Eventos</option>
+        </select>
+
+        <span id="statusBar">☁️ Conectando ao Banco de Dados na Nuvem...</span>
+        
+        <button onclick="fazerLogout()" style="background: none; border: 1px solid #065f46; color: #065f46; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">🚪 Sair</button>
+    </div>
+
+    <div class="container">
+        <!-- Navegação por Abas Dinâmicas (TODAS VISÍVEIS) -->
+       <div class="nav-tabs">
+            <button id="btnFazerSolicitacao" type="button" class="tab-btn" style="background: var(--accent); color: white;" onclick="abrirModalSolicitacaoEvento()">📝 Fazer Solicitação (Evento)</button>
+            <button id="btnTabEmprestimos" class="tab-btn active" onclick="trocarAba(event, 'abaEmprestimos')">📌 Em Uso (Eventos)</button>
+            <button id="btnTabPedidos" class="tab-btn" onclick="trocarAba(event, 'abaPedidos')">🚚 Solicitações & Entregas</button>
+            <button id="btnTabNovaReq" class="tab-btn" onclick="trocarAba(event, 'abaNovaReq')">📝 Saída Direta (Balcão)</button>
+            <button id="btnTabEstoque" class="tab-btn" onclick="trocarAba(event, 'abaEstoque')">📦 Estoque & Locais</button>
+            <button id="btnTabDashboard" class="tab-btn" onclick="trocarAba(event, 'abaDashboard')">📈 Dashboard Visual</button>
+            <button id="btnTabRelatorios" class="tab-btn" onclick="trocarAba(event, 'abaRelatorios')">📊 Relatórios & Auditoria</button>
+        </div>
+
+        <!-- ABA 1: EMPRÉSTIMOS ATIVOS (FORA DO SETOR) -->
+        <div id="abaEmprestimos" class="tab-content active">
+            <div class="card">
+                <h2>📋 Itens Atualmente Fora do Setor</h2>
+                <div id="listaEmprestimos"></div>
+            </div>
+        </div>
+
+        <!-- ABA 2: SOLICITAÇÕES E ENTREGAS PELO STEWARD -->
+        <div id="abaPedidos" class="tab-content">
+            <div class="card">
+                <h2>📋 Gerenciador de Pedidos dos Setores</h2>
+                <p style="font-size:0.85rem; color:#64748b; margin-bottom:15px;">Acompanhe solicitações enviadas pelos departamentos para separação e entrega no evento.</p>
+                <div id="listaPedidosSetores"></div>
+            </div>
+        </div>
+
+        <!-- ABA 3: SAÍDA DIRETA NO BALCÃO -->
+        <div id="abaNovaReq" class="tab-content">
+            <div class="card">
+                <h2>📝 Registrar Retirada Direta (Balcão do Steward)</h2>
+                
+                <!-- AVISO DE RESTRIÇÃO PARA SOLICITANTE -->
+                <div id="avisoBloqueioBalcao" style="display:none; background:#fef2f2; border:1px solid #fca5a5; padding:12px; border-radius:8px; color:var(--danger); font-weight:bold; margin-bottom:15px; font-size:0.85rem;">
+                    🔒 O registro de Saída Direta de Balcão é de uso exclusivo da equipe Steward. Utilize o botão "📝 Fazer Solicitação (Evento)" no menu superior.
+                </div>
+
+                <form id="formRequisicao" onsubmit="salvarRequisicao(event)">
+                    <div class="form-group">
+                        <label>🔎 Digite para pesquisar pela foto e nome do item:</label>
+                        <input type="text" id="inputBuscaItem" class="search-input" placeholder="Ex: Digite 'Prato', 'Taça', 'Travessa'..." oninput="filtrarGaleriaSaida()">
+                        
+                        <div id="gridGaleriaSaida" class="results-grid"></div>
+                        <input type="hidden" id="reqItem" required>
+                    </div>
+
+                    <div id="previewItemSaida" class="preview-item-card">
+                        <img id="prevImg" class="preview-item-img" src="">
+                        <div class="preview-item-info">
+                            <div style="font-size:0.75rem; color:var(--success); font-weight:bold;">ITEM SELECIONADO:</div>
+                            <div id="prevNome" class="preview-item-title"></div>
+                            <div style="color:#475569;">📍 <span id="prevLocal"></span></div>
+                            <div style="color:#475569;">📦 Disponível: <strong id="prevDisp" style="color:var(--success)"></strong> | Total: <span id="prevTotal"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="margin-top:15px;">
+                        <div class="form-group">
+                            <label>Quantidade a Retirar:</label>
+                            <input type="number" id="reqQtd" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Solicitante (Quem levou?):</label>
+                            <input type="text" id="reqSolicitante" placeholder="Ex: João (Garçom)" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Destino / Evento (Para onde vai?):</label>
+                        <input type="text" id="reqDestino" placeholder="Ex: Salão Nobre / Casamento" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Assinatura Digital do Solicitante (Assine na tela):</label>
+                        <div class="signature-container">
+                            <canvas id="canvasAssinatura"></canvas>
+                            <button type="button" class="btn-clear" onclick="limparAssinatura()">🧹 Limpar Assinatura</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnSalvarReq" class="btn btn-accent">🚀 Confirmar Retirada e Salvar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ABA 4: ESTOQUE E EDIÇÃO -->
+        <div id="abaEstoque" class="tab-content">
+            <!-- CADASTRO (EXCLUSIVO STEWARD/ADMIN) -->
+            <div id="cardCadItem" class="card">
+                <h2>➕ Cadastrar Novo Item no Estoque</h2>
+                <form id="formCadItem" onsubmit="salvarItemEstoque(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nome do Item:</label>
+                            <input type="text" id="cadNome" placeholder="Ex: Prato oval angular melamin" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantidade Total Inicial:</label>
+                            <input type="number" id="cadQtd" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Localização (Estante / Prateleira):</label>
+                            <input type="text" id="cadLocal" placeholder="Ex: Estante um" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Foto do Item:</label>
+                            <div style="display: flex; gap: 10px;">
+                                <label class="btn btn-accent" style="flex: 1; margin: 0; cursor: pointer; text-align: center; font-size: 0.85rem;">
+                                    📸 Tirar Foto
+                                    <input type="file" id="cadFotoCam" accept="image/*" capture="environment" style="display: none;" onchange="processarSelecaoFoto(this, 'cadPreviewBox', 'cadPreviewImg')">
+                                </label>
+                                
+                                <label class="btn" style="flex: 1; margin: 0; background: #64748b; color: white; cursor: pointer; text-align: center; font-size: 0.85rem;">
+                                    📁 Galeria
+                                    <input type="file" id="cadFotoGaleria" accept="image/*" style="display: none;" onchange="processarSelecaoFoto(this, 'cadPreviewBox', 'cadPreviewImg')">
+                                </label>
+                            </div>
+
+                            <div id="cadPreviewBox" class="photo-preview-box">
+                                <img id="cadPreviewImg" src="">
+                                <span style="font-size:0.8rem; color:#475569; font-weight:bold;">Foto selecionada!</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnSalvarCad" class="btn btn-primary">💾 Salvar Item no Estoque</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>🏬 Inventário Geral de Louças e Decoração</h2>
+                <div id="gridEstoque" class="grid-itens"></div>
+            </div>
+        </div>
+
+        <!-- ABA 5: DASHBOARD VISUAL COM GRÁFICOS -->
+        <div id="abaDashboard" class="tab-content">
+            <div class="card">
+                <h2>📈 Painel Executivo & Indicadores Patrimoniais</h2>
+                
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-title">Estoque Físico Total</div>
+                        <div class="kpi-value" id="kpiEstoqueTotal">0</div>
+                    </div>
+                    <div class="kpi-card accent">
+                        <div class="kpi-title">Em Uso nos Eventos</div>
+                        <div class="kpi-value" id="kpiEmUso">0</div>
+                    </div>
+                    <div class="kpi-card danger">
+                        <div class="kpi-title">Avarias & Sumiços</div>
+                        <div class="kpi-value" id="kpiAvariasTotal">0</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-box">
+                        <h3>🏆 Top 5 Louças Mais Retiradas</h3>
+                        <canvas id="chartMaisUsados"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>⚠️ Top 5 Itens com Maior Índice de Perdas</h3>
+                        <canvas id="chartMaisPerdidos"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 6: RELATÓRIOS COM FILTRO MENSAL -->
+        <div id="abaRelatorios" class="tab-content">
+            <div class="card">
+                <h2>
+                    <span>📊 Histórico Geral de Movimentações</span>
+                    <button class="btn btn-excel" onclick="exportarExcel()">📊 Exportar para Excel</button>
+                </h2>
+
+                <div class="relatorio-filters">
+                    <div class="filter-row">
+                        <input type="text" id="filtroTexto" placeholder="🔍 Buscar por item ou pessoa..." oninput="filtrarRelatorio()" style="flex:1; min-width:200px;">
+                        
+                        <select id="filtroMesRapido" onchange="aplicarFiltroMesRapido(this.value)">
+                            <option value="TODOS">Todos os Períodos</option>
+                            <option value="MES_ATUAL">Mês Atual</option>
+                            <option value="MES_ANTERIOR">Mês Anterior</option>
+                        </select>
+
+                        <div>
+                            <label style="font-size:0.75rem; font-weight:bold;">De:</label>
+                            <input type="date" id="filtroDataInicio" onchange="filtrarRelatorio()">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem; font-weight:bold;">Até:</label>
+                            <input type="date" id="filtroDataFim" onchange="filtrarRelatorio()">
+                        </div>
+                    </div>
+
+                    <div class="filter-row">
+                        <span style="font-size:0.8rem; font-weight:bold;">Status:</span>
+                        <button class="btn-filter-status active" data-status="TODOS" onclick="setFiltroStatus('TODOS', this)">Todos</button>
+                        <button class="btn-filter-status" data-status="PENDENTE" onclick="setFiltroStatus('PENDENTE', this)">Em Uso</button>
+                        <button class="btn-filter-status" data-status="DEVOLVIDO" onclick="setFiltroStatus('DEVOLVIDO', this)">OK (Devolvido)</button>
+                        <button class="btn-filter-status" data-status="AVARIA" onclick="setFiltroStatus('AVARIA', this)">Avarias / Perdas</button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qtd Saída</th>
+                                <th>Retirado por</th>
+                                <th>Devolvido por</th>
+                                <th>Data Saída / Retorno</th>
+                                <th>Conferência Reverso</th>
+                                <th style="text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaRelatorio"></tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-container">
+                    <div id="infoPaginacao">Exibindo 0-0 de 0 registros</div>
+                    <div class="pagination-buttons" id="botoesPaginacao"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ENTREGA E ASSINATURA DE PEDIDO PELO STEWARD -->
+    <div id="modalEntregaPedido" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="fecharModal('modalEntregaPedido')">&times;</button>
+            <h2 style="font-size:1.1rem; color:var(--primary); margin-bottom:12px;">🚚 Confirmar Entrega no Evento</h2>
+            
+            <div id="resumoEntregaPedido" class="box-resumo-saida"></div>
+
+            <form onsubmit="confirmarEntregaPedido(event)">
+                <div class="form-group">
+                    <label>Assinatura do Responsável pelo Recebimento:</label>
+                    <div class="signature-container">
+                        <canvas id="canvasAssinaturaPedido"></canvas>
+                        <button type="button" class="btn-clear" onclick="limparAssinaturaPedido()">🧹 Limpar Assinatura</button>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnConfirmarEntrega" class="btn btn-success" style="margin-top:10px;">✅ Confirmar Recebimento & Registrar Saída</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE EDIÇÃO DO ITEM -->
+    <div id="modalItem" class="modal-overlay" onclick="fecharModalSeForFora(event, 'modalItem')">
+        <div class="modal-content">
+            <button class="modal-close" onclick="fecharModal('modalItem')">&times;</button>
+            <img id="modalImg" class="modal-img">
+            
+            <form id="formModalEditItem" onsubmit="salvarEdicaoItem(event)">
+                <div id="areaFotosModalEdit" class="form-group">
+                    <label>Alterar Foto do Item:</label>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <label class="btn btn-accent" style="flex: 1; margin: 0; cursor: pointer; text-align: center; font-size: 0.85rem;">
+                            📸 Nova Foto (Câmera)
+                            <input type="file" id="editFotoCam" accept="image/*" capture="environment" style="display: none;" onchange="processarFotoModal(this)">
+                        </label>
+                        
+                        <label class="btn" style="flex: 1; margin: 0; background: #64748b; color: white; cursor: pointer; text-align: center; font-size: 0.85rem;">
+                            📁 Galeria
+                            <input type="file" id="editFotoGaleria" accept="image/*" style="display: none;" onchange="processarFotoModal(this)">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nome / Descrição do Item:</label>
+                    <input type="text" id="editNome" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Localização (Estante / Prateleira):</label>
+                    <input type="text" id="editLocal" required>
+                </div>
+
+                <!-- TRAVA DE AUDITORIA DE QUANTIDADES DO ESTOQUE -->
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:10px; border-radius:8px; margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.8rem; font-weight:bold; color:var(--primary-dark);">📊 Saldos e Quantidades (Restrito):</span>
+                        <button type="button" id="btnDesbloquearSaldos" class="btn btn-accent" style="width:auto; padding:4px 8px; font-size:0.75rem;" onclick="solicitarDesbloqueioAuditor()">🔒 Desbloquear Saldos (Auditor)</button>
+                    </div>
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Total Físico:</label>
+                            <input type="number" id="editQtdTotal" min="0" disabled required>
+                        </div>
+                        <div class="form-group">
+                            <label>Disponível:</label>
+                            <input type="number" id="editQtdDisp" min="0" disabled required>
+                        </div>
+                        <div class="form-group">
+                            <label style="color:var(--danger)">Perdas (Hist.):</label>
+                            <input type="number" id="editQtdPerdas" min="0" disabled>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="areaBotoesModalEdit" style="display:flex; gap:10px; margin-top:15px;">
+                    <button type="submit" id="btnSalvarEdit" class="btn btn-primary" style="flex:2;">💾 Salvar Alterações</button>
+                    <button type="button" class="btn btn-danger" style="flex:1;" onclick="excluirItemDoModal()">🔒 Excluir (Auditor)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE INVENTÁRIO REVERSO / DEVOLUÇÃO -->
+    <div id="modalDevolucao" class="modal-overlay" onclick="fecharModalSeForFora(event, 'modalDevolucao')">
+        <div class="modal-content">
+            <button class="modal-close" onclick="fecharModal('modalDevolucao')">&times;</button>
+            <h2 style="font-size:1.1rem; color:var(--primary); margin-bottom:12px;">🔎 Inventário Reverso - Conferência de Entrada</h2>
+            
+            <div id="resumoSaida" class="box-resumo-saida"></div>
+
+            <form onsubmit="confirmarInventarioReverso(event)">
+                <div class="form-group">
+                    <label>Quem está entregando / devolvendo?</label>
+                    <input type="text" id="devQuemDevolveu" placeholder="Ex: Carlos (Steward) / Pedro (Garçom)" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label style="color:var(--success)">🟢 Qtd OK (Perfeitas):</label>
+                        <input type="number" id="devQtdOk" min="0" value="0" oninput="calcularValidaçãoReverso()">
+                    </div>
+                    <div class="form-group">
+                        <label style="color:var(--danger)">🔴 Qtd Avariada/Quebrada:</label>
+                        <input type="number" id="devQtdAvaria" min="0" value="0" oninput="calcularValidaçãoReverso()">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="color:#b45309">⚠️ Qtd Perdida/Extraviada:</label>
+                    <input type="number" id="devQtdPerdida" min="0" value="0" oninput="calcularValidaçãoReverso()">
+                </div>
+
+                <div class="form-group" id="boxMotivoAvaria" style="display:none;">
+                    <label style="color:var(--danger)">Justificativa das Avarias / Perdas:</label>
+                    <textarea id="devJustificativa" rows="2" placeholder="Ex: 1 prato trincado na lavagem"></textarea>
+                </div>
+
+                <button type="submit" id="btnConfirmarDev" class="btn btn-success" style="margin-top:10px;">✅ Finalizar Conferência e Devolver ao Estoque</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TELA DE SOLICITAÇÃO DO EVENTO / SETORES -->
+    <div id="modalSolicitarSetor" class="modal-overlay">
+        <div class="modal-content" style="max-width: 550px;">
+            <button class="modal-close" onclick="fecharModal('modalSolicitarSetor')">&times;</button>
+            <h2 style="font-size:1.1rem; color:var(--primary); margin-bottom:12px;">📝 Solicitar Material ao Steward</h2>
+            
+            <form onsubmit="enviarSolicitacaoSetor(event)">
+                
+                <!-- BUSCADOR VISUAL DE ITENS COM FOTO -->
+                <div class="form-group">
+                    <label>🔎 Pesquise o item digitando o nome (Ex: 'Prato', 'Travessa'):</label>
+                    <input type="text" id="solicBuscaItem" class="search-input" placeholder="Digite para filtrar as fotos..." oninput="filtrarGaleriaSolicitacao()">
+                    
+                    <div id="solicGridGaleria" class="results-grid" style="max-height: 200px; margin-top: 8px;"></div>
+                    <input type="hidden" id="solicItemId" required>
+                </div>
+
+                <!-- PREVIEW DO ITEM SELECIONADO -->
+                <div id="solicPreviewItem" class="preview-item-card">
+                    <img id="solicPrevImg" class="preview-item-img" src="">
+                    <div class="preview-item-info">
+                        <div style="font-size:0.75rem; color:var(--success); font-weight:bold;">ITEM SELECIONADO:</div>
+                        <div id="solicPrevNome" class="preview-item-title"></div>
+                        <div style="color:#475569;">📦 Disponível no Estoque: <strong id="solicPrevDisp" style="color:var(--success)"></strong></div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 12px;">
+                    <label>Quantidade Necessária:</label>
+                    <input type="number" id="solicQtd" min="1" value="1" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>📅 Data do Evento:</label>
+                        <input type="date" id="solicDataEvento" required>
+                    </div>
+                    <div class="form-group">
+                        <label>⏰ Horário da Entrega:</label>
+                        <input type="time" id="solicHorario" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Solicitante (Seu Nome):</label>
+                        <input type="text" id="solicNome" placeholder="Ex: Garçom João" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Destino / Evento / Mesa:</label>
+                        <input type="text" id="solicDestino" placeholder="Ex: Salão Nobre / Mesa 04" required>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnEnviarSolic" class="btn btn-primary" style="margin-top:10px;">🚀 Enviar Pedido & Reservar no Estoque</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Hash SHA-256 de verificação do Auditor (Senha '2189')
+        const SENHA_AUDITOR_HASH = "73967bc37b8b548b29f04c6e3b5675e82485eb1f2986429f5f0b5d568c83e020";
+
+        let configuracaoUnidades = {
+            "atibaia": { modoOperacao: "RETIRADA" },
+            "santos": { modoOperacao: "ENTREGA" },
+            "foz_thermas": { modoOperacao: "HIBRIDO" }
+        };
+
+        const USUARIOS = { 
+            "steward": { senha: "123", unidade: "atibaia", perfil: "steward" }
+        };
+
+        let unidadeAtual = "atibaia"; 
+        let perfilUsuarioAtual = "steward"; // "admin", "steward" ou "solicitante"
+        let saldosEdicaoLiberados = false;
+
+        // FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyAb7JGgMmyeTecmBHo_vGzw_QIMm0u98SY",
+            authDomain: "estoque-steward.firebaseapp.com",
+            databaseURL: "https://estoque-steward-default-rtdb.firebaseio.com",
+            projectId: "estoque-steward",
+            storageBucket: "estoque-steward.firebasestorage.app",
+            messagingSenderId: "886531086862",
+            appId: "1:886531086862:web:9580b0bf02361287eb7a5f",
+            measurementId: "G-CQZR147458"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let estoque = [];
+        let emprestimos = [];
+        let pedidos = [];
+        let emprestimosFiltrados = [];
+        
+        let signaturePad = null;
+        let signaturePadPedido = null;
+        
+        let itemSelecionadoId = null;
+        let emprestimoSelecionadoId = null;
+        let pedidoSelecionadoId = null;
+
+        let fotoCapturadaCadastro = null;
+        let fotoCapturadaEdicao = null;
+
+        let chartUsadosInstance = null;
+        let chartPerdidosInstance = null;
+
+        let paginaAtual = 1;
+        const itensPorPagina = 10;
+        let statusFiltroAtual = 'TODOS';
+
+        let primeiraCargaPedidos = true;
+        let intervaloAlerta = null;
+
+        window.onload = function() {
+            verificarSessao();
+            iniciarAssinaturaPads();
+            escutarDadosNuvem();
+            window.addEventListener('resize', reajustarCanvas);
+
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        };
+
+        function alternarAbaLogin(aba) {
+            document.querySelectorAll('.login-tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (aba === 'ENTRAR') {
+                document.querySelectorAll('.login-tab-btn')[0].classList.add('active');
+                document.getElementById('formLogin').style.display = 'block';
+                document.getElementById('formCriarConta').style.display = 'none';
+            } else {
+                document.querySelectorAll('.login-tab-btn')[1].classList.add('active');
+                document.getElementById('formLogin').style.display = 'none';
+                document.getElementById('formCriarConta').style.display = 'block';
+            }
+        }
+
+        async function validarLogin(e) {
+            e.preventDefault();
+            const un = document.getElementById('loginUnidade').value;
+            const u = document.getElementById('loginUsuario').value.trim().toLowerCase();
+            const p = document.getElementById('loginSenha').value.trim();
+
+            let eAdmin = (u === 'admin');
+            let senhaValida = false;
+            let perfilDefinido = "steward";
+
+            if (eAdmin) {
+                if (p === "2189") {
+                    senhaValida = true;
+                } else {
+                    const hashDigitado = await gerarHash(p);
+                    if (hashDigitado === SENHA_AUDITOR_HASH) {
+                        senhaValida = true;
+                    }
+                }
+
+                if (!senhaValida) {
+                    alert(idiomaAtual === "ES" ? '❌ ¡Contraseña de administrador incorrecta!' : '❌ Senha de administrador incorreta!');
+                    return;
+                }
+                perfilDefinido = "admin";
+            } 
+            else if (USUARIOS[u]) {
+                if (USUARIOS[u].senha !== p) {
+                    alert(idiomaAtual === "ES" ? '❌ ¡Contraseña incorrecta!' : '❌ Senha incorreta!');
+                    return;
+                }
+                perfilDefinido = USUARIOS[u].perfil || "steward";
+            } 
+            else {
+                alert(idiomaAtual === "ES" ? '❌ ¡Usuario no encontrado!' : '❌ Usuário não encontrado!');
+                return;
+            }
+
+            unidadeAtual = un;
+            perfilUsuarioAtual = perfilDefinido;
+            
+            sessionStorage.setItem('usuarioLogado', u);
+            sessionStorage.setItem('unidadeLogada', un);
+            sessionStorage.setItem('perfilLogado', perfilDefinido);
+
+            document.getElementById('loginOverlay').style.display = 'none';
+            
+            configurarMenuUnidadeTopo(eAdmin);
+            aplicarPermissoesPorPerfil();
+            
+            const seletorModulo = document.getElementById('seletorModuloOperacao');
+            if (seletorModulo) {
+                seletorModulo.value = 'BALCAO';
+                alternarModuloOperacao('BALCAO');
+            }
+
+            escutarDadosNuvem();
+            iniciarAssinaturaPads();
+        }
+
+        function aplicarPermissoesPorPerfil() {
+            const isSolicitante = (perfilUsuarioAtual === 'solicitante');
+
+            // Cadastro de Estoque: Oculta apenas o formulário de cadastrar item
+            const cardCadItem = document.getElementById('cardCadItem');
+            if (cardCadItem) {
+                cardCadItem.style.display = isSolicitante ? 'none' : 'block';
+            }
+
+            // Saída Direta Balcão: Desabilita campos e exibe aviso se for solicitante
+            const avisoBalcao = document.getElementById('avisoBloqueioBalcao');
+            const formReq = document.getElementById('formRequisicao');
+            if (avisoBalcao && formReq) {
+                if (isSolicitante) {
+                    avisoBalcao.style.display = 'block';
+                    formReq.querySelectorAll('input, button, select').forEach(el => el.disabled = true);
+                } else {
+                    avisoBalcao.style.display = 'none';
+                    formReq.querySelectorAll('input, button, select').forEach(el => el.disabled = false);
+                }
+            }
+        }
+
+        function configurarMenuUnidadeTopo(eAdmin) {
+            const container = document.querySelector('.unit-selector-container');
+            const selectLogin = document.getElementById('loginUnidade');
+            const nomeHotelFormatado = selectLogin.options[selectLogin.selectedIndex].text;
+
+            if (eAdmin) {
+                container.innerHTML = `
+                    <label for="seletorUnidade">🏨 Hotel (${idiomaAtual === "ES" ? "Visión Corporativa" : "Visão Corporativa"}):</label>
+                    <select id="seletorUnidade" onchange="alterarUnidadeAtual()">
+                        ${selectLogin.innerHTML}
+                    </select>
+                `;
+                document.getElementById('seletorUnidade').value = unidadeAtual;
+            } else {
+                container.innerHTML = `
+                    <span>🏨 <strong>Hotel:</strong> ${nomeHotelFormatado}</span>
+                `;
+            }
+        }
+
+        function criarNovoUsuario(e) {
+            e.preventDefault();
+            const un = document.getElementById('cadUserUnidade').value;
+            const perfil = document.getElementById('cadUserPerfil').value;
+            const u = document.getElementById('cadUserUsuario').value.trim().toLowerCase();
+            const p = document.getElementById('cadUserSenha').value.trim();
+
+            USUARIOS[u] = { senha: p, unidade: un, perfil: perfil };
+
+            alert(`✅ Conta '${u}' criada com sucesso como [${perfil.toUpperCase()}]!`);
+            alternarAbaLogin('ENTRAR');
+        }
+
+        /* FILTRO DINÂMICO DE EXIBIÇÃO DE GUIAS POR MÓDULO DO TOPO */
+        function alternarModuloOperacao(modulo) {
+            const btnFazerSolicitacao = document.getElementById('btnFazerSolicitacao');
+            const btnTabPedidos = document.getElementById('btnTabPedidos');
+            const btnTabNovaReq = document.getElementById('btnTabNovaReq');
+
+            if (modulo === 'BALCAO') {
+                if (btnFazerSolicitacao) btnFazerSolicitacao.style.display = 'none';
+                if (btnTabPedidos) btnTabPedidos.style.display = 'none';
+                if (btnTabNovaReq) btnTabNovaReq.style.display = 'inline-block';
+
+                if (btnTabNovaReq) btnTabNovaReq.click();
+
+            } else { 
+                if (btnFazerSolicitacao) btnFazerSolicitacao.style.display = 'inline-block';
+                if (btnTabPedidos) btnTabPedidos.style.display = 'inline-block';
+                if (btnTabNovaReq) btnTabNovaReq.style.display = 'none';
+
+                if (btnTabPedidos) btnTabPedidos.click();
+            }
+        }
+
+        function verificarSessao() {
+            const u = sessionStorage.getItem('usuarioLogado');
+            const un = sessionStorage.getItem('unidadeLogada');
+            const perfil = sessionStorage.getItem('perfilLogado');
+
+            if (u && un) { 
+                unidadeAtual = un;
+                perfilUsuarioAtual = perfil || "steward";
+                document.getElementById('loginOverlay').style.display = 'none'; 
+                configurarMenuUnidadeTopo(perfil === 'admin');
+                aplicarPermissoesPorPerfil();
+                
+                const seletorModulo = document.getElementById('seletorModuloOperacao');
+                if (seletorModulo) alternarModuloOperacao(seletorModulo.value);
+            } else { 
+                document.getElementById('loginOverlay').style.display = 'flex'; 
+            }
+        }
+
+        function fazerLogout() {
+            sessionStorage.removeItem('usuarioLogado');
+            sessionStorage.removeItem('unidadeLogada');
+            sessionStorage.removeItem('perfilLogado');
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+
+        function alterarUnidadeAtual() {
+            unidadeAtual = document.getElementById('seletorUnidade').value;
+            primeiraCargaPedidos = true;
+            escutarDadosNuvem();
+        }
+
+        function escutarDadosNuvem() {
+            const statusBar = document.getElementById('statusBar');
+
+            // ESTOQUE
+            db.ref('estoque').on('value', (snapshot) => {
+                const data = snapshot.val();
+                estoque = [];
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        const item = data[key];
+                        const itemUnit = item.unidade || 'atibaia';
+                        if (itemUnit === unidadeAtual) {
+                            estoque.push({ idFirebase: key, ...item });
+                        }
+                    });
+                }
+                renderizarEstoque();
+                filtrarGaleriaSaida();
+                renderizarRelatorio();
+                atualizarDashboard();
+                statusBar.innerHTML = "🟢 Nuvem Sincronizada (" + unidadeAtual.toUpperCase() + ")";
+            });
+
+            // EMPRÉSTIMOS
+            db.ref('emprestimos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                emprestimos = [];
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        const emp = data[key];
+                        const empUnit = emp.unidade || 'atibaia';
+                        if (empUnit === unidadeAtual) {
+                            emprestimos.push({ idFirebase: key, ...emp });
+                        }
+                    });
+                }
+                emprestimos.sort((a, b) => b.id - a.id);
+                renderizarEmprestimos();
+                filtrarRelatorio();
+                atualizarDashboard();
+            });
+
+            // PEDIDOS
+            db.ref('pedidos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                const pedidosAnteriores = [...pedidos];
+                pedidos = [];
+                
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        const ped = data[key];
+                        const pedUnit = ped.unidade || 'atibaia';
+                        if (pedUnit === unidadeAtual) {
+                            pedidos.push({ idFirebase: key, ...ped });
+                        }
+                    });
+                }
+                pedidos.sort((a, b) => b.id - a.id);
+
+                if (!primeiraCargaPedidos) {
+                    const novosPedidos = pedidos.filter(pNovo => 
+                        pNovo.status === 'SOLICITADO' && 
+                        !pedidosAnteriores.some(pAnt => pAnt.id === pNovo.id)
+                    );
+
+                    if (novosPedidos.length > 0 && perfilUsuarioAtual !== 'solicitante') {
+                        dispararAlertaNovoPedido(novosPedidos[0]);
+                    }
+                } else {
+                    primeiraCargaPedidos = false;
+                }
+
+                renderizarPedidos();
+            });
+        }
+
+        function dispararAlertaNovoPedido(pedido) {
+            // Se for solicitante, garante silêncio total
+            if (perfilUsuarioAtual === 'solicitante') {
+                pararAlertaSonoro();
+                return;
+            }
+
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("🔔 Nova Solicitação de Material!", {
+                    body: `${pedido.qtd}x ${pedido.itemNome} para ${pedido.solicitante}`,
+                    icon: "logo.png"
+                });
+            }
+
+            const toastAntigo = document.getElementById('toastAlertaNovoPedido');
+            if (toastAntigo) toastAntigo.remove();
+
+            const alertDiv = document.createElement('div');
+            alertDiv.id = 'toastAlertaNovoPedido';
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--accent);
+                color: white;
+                padding: 12px 18px;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-weight: bold;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                border: 2px solid white;
+            `;
+            alertDiv.innerHTML = `
+                <span>🔔 <strong>Novo Pedido!</strong> ${pedido.qtd}x ${pedido.itemNome} (${pedido.solicitante})</span>
+                <button onclick="pararAlertaSonoro()" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">🔕 Silenciar</button>
+            `;
+            document.body.appendChild(alertDiv);
+
+            if (intervaloAlerta) {
+                clearInterval(intervaloAlerta);
+                intervaloAlerta = null;
+            }
+
+            intervaloAlerta = setInterval(() => {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2);
+                } catch (e) {
+                    console.log("Áudio bloqueado até interação.", e);
+                }
+            }, 1500);
+        }
+
+        function pararAlertaSonoro() {
+            if (intervaloAlerta) {
+                clearInterval(intervaloAlerta);
+                intervaloAlerta = null;
+            }
+            const toast = document.getElementById('toastAlertaNovoPedido');
+            if (toast) toast.remove();
+        }
+
+        function trocarAba(evt, abaId) {
+            if (abaId === 'abaPedidos') {
+                pararAlertaSonoro();
+            }
+
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            evt.currentTarget.classList.add('active');
+            document.getElementById(abaId).classList.add('active');
+
+            if (abaId === 'abaNovaReq' || abaId === 'abaPedidos') {
+                setTimeout(reajustarCanvas, 150);
+            }
+            if (abaId === 'abaDashboard') {
+                atualizarDashboard();
+            }
+        }
+
+        function iniciarAssinaturaPads() {
+            const canvas1 = document.getElementById('canvasAssinatura');
+            if (canvas1) signaturePad = new SignaturePad(canvas1, { backgroundColor: 'rgb(255, 255, 255)' });
+
+            const canvas2 = document.getElementById('canvasAssinaturaPedido');
+            if (canvas2) signaturePadPedido = new SignaturePad(canvas2, { backgroundColor: 'rgb(255, 255, 255)' });
+
+            const observer = new ResizeObserver(() => reajustarCanvas());
+            
+            const container1 = canvas1?.parentElement;
+            const container2 = canvas2?.parentElement;
+            
+            if (container1) observer.observe(container1);
+            if (container2) observer.observe(container2);
+        }
+
+        function reajustarCanvas() {
+            [ { canvas: document.getElementById('canvasAssinatura'), pad: signaturePad },
+              { canvas: document.getElementById('canvasAssinaturaPedido'), pad: signaturePadPedido }
+            ].forEach(({ canvas, pad }) => {
+                if (canvas && pad && canvas.offsetWidth > 0) {
+                    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                    const data = pad.toData(); 
+                    
+                    canvas.width = canvas.offsetWidth * ratio;
+                    canvas.height = canvas.offsetHeight * ratio;
+                    canvas.getContext("2d").scale(ratio, ratio);
+                    
+                    pad.clear();
+                    pad.fromData(data);
+                }
+            });
+        }
+
+        function limparAssinatura() { if (signaturePad) signaturePad.clear(); }
+        function limparAssinaturaPedido() { if (signaturePadPedido) signaturePadPedido.clear(); }
+
+        function processarSelecaoFoto(input, previewBoxId, previewImgId) {
+            if (input.files && input.files[0]) {
+                fotoCapturadaCadastro = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById(previewImgId).src = e.target.result;
+                    document.getElementById(previewBoxId).classList.add('active');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function processarFotoModal(input) {
+            if (input.files && input.files[0]) {
+                fotoCapturadaEdicao = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('modalImg').src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function comprimirEConverterImagem(file, callback) {
+            if (!file) { callback(''); return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const maxDim = 350;
+
+                    if (width > height) { if (width > maxDim) { height *= maxDim / width; width = maxDim; } } 
+                    else { if (height > maxDim) { width *= maxDim / height; height = maxDim; } }
+
+                    canvas.width = width; canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    callback(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function salvarItemEstoque(e) {
+            e.preventDefault();
+            if (perfilUsuarioAtual === 'solicitante') return;
+
+            const btnSubmit = document.getElementById('btnSalvarCad');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '⏳ Salvando no Banco...';
+
+            const nome = document.getElementById('cadNome').value;
+            const qtd = parseInt(document.getElementById('cadQtd').value);
+            const local = document.getElementById('cadLocal').value;
+
+            comprimirEConverterImagem(fotoCapturadaCadastro, (fotoBase64) => {
+                const novoId = Date.now();
+                const novoItem = { 
+                    id: novoId, 
+                    nome, 
+                    qtd, 
+                    disponivel: qtd, 
+                    perdas: 0, 
+                    local, 
+                    foto: fotoBase64,
+                    unidade: unidadeAtual 
+                };
+                
+                db.ref('estoque/' + novoId).set(novoItem)
+                    .then(() => {
+                        document.getElementById('formCadItem').reset();
+                        document.getElementById('cadPreviewBox').classList.remove('active');
+                        fotoCapturadaCadastro = null;
+                        alert('✅ Item salvo com sucesso!');
+                    })
+                    .catch((err) => alert('❌ Erro: ' + err.message))
+                    .finally(() => {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '💾 Salvar Item no Estoque';
+                    });
+            });
+        }
+
+        function renderizarEstoque() {
+            const grid = document.getElementById('gridEstoque');
+            grid.innerHTML = '';
+            estoque.forEach(item => {
+                const imgPlaceholder = 'https://via.placeholder.com/300x130?text=Sem+Foto';
+                const corDisp = item.disponivel === 0 ? 'var(--danger)' : 'var(--success)';
+                grid.innerHTML += `
+                    <div class="item-card" onclick="abrirModalItem(${item.id})">
+                        <img src="${item.foto || imgPlaceholder}" class="item-img">
+                        <div class="item-info">
+                            <div>
+                                <div class="item-title">${item.nome}</div>
+                                <div class="item-loc">📍 ${item.local}</div>
+                            </div>
+                            <div class="item-qtd">
+                                <span>Total: <strong>${item.qtd}</strong></span>
+                                <span>Disp: <strong style="color:${corDisp}">${item.disponivel}</strong></span>
+                                <span style="color:var(--danger)">Perdas: <strong>${item.perdas || 0}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function filtrarGaleriaSaida() {
+            const input = document.getElementById('inputBuscaItem');
+            if(!input) return;
+            const termo = input.value.toLowerCase().trim();
+            const grid = document.getElementById('gridGaleriaSaida');
+            if(!grid) return;
+            grid.innerHTML = '';
+
+            const itensFiltrados = estoque.filter(item => item.disponivel > 0 && item.nome.toLowerCase().includes(termo));
+
+            if (itensFiltrados.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#64748b; padding:15px; font-size:0.85rem;">Nenhum item disponível encontrado.</div>';
+                return;
+            }
+
+            const imgPlaceholder = 'https://via.placeholder.com/150?text=Sem+Foto';
+            itensFiltrados.forEach(item => {
+                const isSelected = document.getElementById('reqItem').value == item.id ? 'selected' : '';
+                grid.innerHTML += `
+                    <div class="select-card ${isSelected}" onclick="selecionarItemParaSaida(${item.id})">
+                        <img src="${item.foto || imgPlaceholder}" class="select-card-img">
+                        <div class="select-card-title">${item.nome}</div>
+                        <div class="select-card-badge">Disp: ${item.disponivel}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function selecionarItemParaSaida(idItem) {
+            const item = estoque.find(i => i.id === idItem);
+            if (!item) return;
+
+            document.getElementById('reqItem').value = item.id;
+            filtrarGaleriaSaida();
+
+            const imgPlaceholder = 'https://via.placeholder.com/150?text=Sem+Foto';
+            document.getElementById('prevImg').src = item.foto || imgPlaceholder;
+            document.getElementById('prevNome').textContent = item.nome;
+            document.getElementById('prevLocal').textContent = item.local;
+            document.getElementById('prevDisp').textContent = item.disponivel;
+            document.getElementById('prevTotal').textContent = item.qtd;
+            document.getElementById('previewItemSaida').classList.add('active');
+        }
+
+        function salvarRequisicao(e) {
+            e.preventDefault();
+            if (perfilUsuarioAtual === 'solicitante') return;
+
+            const itemId = parseInt(document.getElementById('reqItem').value);
+
+            if (!itemId) { alert("⚠️ Selecione um item na galeria visual!"); return; }
+            if (signaturePad.isEmpty()) { alert("⚠️ Peça a assinatura do solicitante!"); return; }
+
+            const qtd = parseInt(document.getElementById('reqQtd').value);
+            const solicitante = document.getElementById('reqSolicitante').value;
+            const destino = document.getElementById('reqDestino').value;
+            const itemEstoque = estoque.find(i => i.id === itemId);
+
+            if (qtd > itemEstoque.disponivel) {
+                alert(`⚠️ Saldo insuficiente! Disponível: ${itemEstoque.disponivel}`);
+                return;
+            }
+
+            const btnSubmit = document.getElementById('btnSalvarReq');
+            btnSubmit.disabled = true;
+
+            const novoEmpId = Date.now();
+            const novoEmprestimo = {
+                id: novoEmpId,
+                itemId: itemEstoque.id,
+                itemNome: itemEstoque.nome,
+                localOriginal: itemEstoque.local,
+                qtd,
+                solicitante,
+                destino,
+                dataSaida: new Date().toLocaleString('pt-BR'),
+                dataRetorno: '-',
+                devolvidoPor: '-',
+                assinatura: signaturePad.toDataURL(),
+                status: 'PENDENTE',
+                detalheReverso: '-',
+                unidade: unidadeAtual
+            };
+
+            db.ref('estoque/' + itemEstoque.id + '/disponivel').transaction((saldoAtual) => {
+                if (saldoAtual === null) return 0;
+                const novoSaldo = saldoAtual - qtd;
+                return novoSaldo >= 0 ? novoSaldo : undefined;
+            });
+            db.ref('emprestimos/' + novoEmpId).set(novoEmprestimo)
+                .then(() => {
+                    document.getElementById('formRequisicao').reset();
+                    document.getElementById('reqItem').value = '';
+                    document.getElementById('previewItemSaida').classList.remove('active');
+                    limparAssinatura();
+                    alert('✅ Saída realizada com sucesso!');
+                })
+                .finally(() => { btnSubmit.disabled = false; });
+        }
+
+        function renderizarPedidos() {
+            const container = document.getElementById('listaPedidosSetores');
+            container.innerHTML = '';
+
+            if (pedidos.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#64748b; padding:20px;">Nenhuma solicitação pendente no momento.</p>';
+                return;
+            }
+
+            const eStewardOuAdmin = (perfilUsuarioAtual === 'steward' || perfilUsuarioAtual === 'admin');
+
+            pedidos.forEach(ped => {
+                let badgeClass = 'badge-solicitado';
+                let acoesHtml = '';
+
+                if (ped.status === 'SOLICITADO') {
+                    if (eStewardOuAdmin) {
+                        acoesHtml += `<button class="btn btn-primary" style="width:auto; font-size:0.8rem;" onclick="mudarStatusPedido(${ped.id}, 'SEPARADO')">📦 Iniciar Separação</button>`;
+                    }
+                    
+                    acoesHtml += `<button class="btn btn-danger" style="width:auto; font-size:0.8rem; margin-left:5px;" onclick="cancelarPedidoSolicitado(${ped.id})">❌ Cancelar & Devolver Saldo</button>`;
+
+                } else if (ped.status === 'SEPARADO') {
+                    badgeClass = 'badge-separado';
+                    if (eStewardOuAdmin) {
+                        acoesHtml = `
+                            <button class="btn btn-success" style="width:auto; font-size:0.8rem;" onclick="abrirModalEntregaPedido(${ped.id})">🚚 Iniciar Entrega no Evento</button>
+                            <button class="btn btn-danger" style="width:auto; font-size:0.8rem; margin-left:5px;" onclick="cancelarPedidoSolicitado(${ped.id})">❌ Cancelar & Devolver Saldo</button>
+                        `;
+                    } else {
+                        acoesHtml = `<span style="font-size:0.8rem; color:var(--accent); font-weight:bold;">📦 Material em separação pelo Steward...</span>`;
+                    }
+                }
+
+                container.innerHTML += `
+                    <div class="emp-card">
+                        <div class="emp-header">
+                            <span>${ped.qtd}x ${ped.itemNome}</span>
+                            <span class="badge ${badgeClass}">${ped.status}</span>
+                        </div>
+                        <div class="emp-detail">👤 <strong>Solicitante:</strong> ${ped.solicitante}</div>
+                        <div class="emp-detail">🚪 <strong>Destino/Evento:</strong> ${ped.destino}</div>
+                        <div class="emp-detail">🕒 <strong>Data do Pedido:</strong> ${ped.dataPedido}</div>
+                        <div style="margin-top:10px; display:flex; justify-content:flex-end; align-items:center;">${acoesHtml}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function mudarStatusPedido(idPedido, novoStatus) {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            db.ref('pedidos/' + idPedido).update({ status: novoStatus });
+        }
+
+        function cancelarPedidoSolicitado(idPedido) {
+            const ped = pedidos.find(p => p.id === idPedido);
+            if (!ped) return;
+
+            if (confirm(`Confirma o cancelamento da solicitação de "${ped.itemNome}" (${ped.qtd} un)?\nO saldo retornará ao estoque disponível.`)) {
+                const itemEstoque = estoque.find(i => i.id === ped.itemId);
+                if (itemEstoque) {
+                    db.ref('estoque/' + itemEstoque.id).update({
+                        disponivel: (itemEstoque.disponivel || 0) + ped.qtd
+                    });
+                }
+                db.ref('pedidos/' + ped.id).remove().then(() => {
+                    alert('✅ Pedido cancelado e saldo estornado ao estoque!');
+                });
+            }
+        }
+
+        function abrirModalEntregaPedido(idPedido) {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            pedidoSelecionadoId = idPedido;
+            const ped = pedidos.find(p => p.id === idPedido);
+            if (!ped) return;
+
+            document.getElementById('resumoEntregaPedido').innerHTML = `
+                📦 <strong>Item:</strong> ${ped.itemNome}<br>
+                🔢 <strong>Quantidade a Entregar:</strong> ${ped.qtd}<br>
+                👤 <strong>Solicitante:</strong> ${ped.solicitante} (${ped.destino})
+            `;
+
+            document.getElementById('modalEntregaPedido').classList.add('active');
+            setTimeout(reajustarCanvas, 150);
+        }
+
+        function confirmarEntregaPedido(e) {
+            e.preventDefault();
+            if (perfilUsuarioAtual === 'solicitante') return;
+            if (!pedidoSelecionadoId) return;
+            if (signaturePadPedido.isEmpty()) { alert("Peça a assinatura do solicitante!"); return; }
+
+            const ped = pedidos.find(p => p.id === pedidoSelecionadoId);
+            const itemEstoque = estoque.find(i => i.id === ped.itemId);
+
+            const novoEmpId = Date.now();
+            const novoEmprestimo = {
+                id: novoEmpId,
+                itemId: ped.itemId,
+                itemNome: ped.itemNome,
+                localOriginal: itemEstoque ? itemEstoque.local : '-',
+                qtd: ped.qtd,
+                solicitante: ped.solicitante,
+                destino: ped.destino,
+                dataSaida: new Date().toLocaleString('pt-BR'),
+                dataRetorno: '-',
+                devolvidoPor: '-',
+                assinatura: signaturePadPedido.toDataURL(),
+                status: 'PENDENTE',
+                detalheReverso: '-',
+                unidade: unidadeAtual
+            };
+
+            db.ref('emprestimos/' + novoEmpId).set(novoEmprestimo);
+            db.ref('pedidos/' + ped.id).remove().then(() => {
+                fecharModal('modalEntregaPedido');
+                alert('✅ Entrega realizada e registrada em eventos!');
+            });
+        }
+
+        function abrirModalDevolucao(idEmprestimo) {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            emprestimoSelecionadoId = idEmprestimo;
+            const emp = emprestimos.find(e => e.id === idEmprestimo);
+            if (!emp) return;
+
+            document.getElementById('resumoSaida').innerHTML = `
+                📦 <strong>Item:</strong> ${emp.itemNome}<br>
+                🔢 <strong>Quantidade Retirada:</strong> <span style="font-size:1rem; font-weight:bold; color:var(--primary);">${emp.qtd} unidades</span><br>
+                👤 <strong>Retirado por:</strong> ${emp.solicitante} (${emp.destino})
+            `;
+
+            document.getElementById('devQuemDevolveu').value = '';
+            document.getElementById('devQtdOk').value = emp.qtd;
+            document.getElementById('devQtdAvaria').value = 0;
+            document.getElementById('devQtdPerdida').value = 0;
+            document.getElementById('devJustificativa').value = '';
+
+            calcularValidaçãoReverso();
+            document.getElementById('modalDevolucao').classList.add('active');
+        }
+
+        function calcularValidaçãoReverso() {
+            const emp = emprestimos.find(e => e.id === emprestimoSelecionadoId);
+            if (!emp) return;
+
+            const qtdOk = parseInt(document.getElementById('devQtdOk').value) || 0;
+            const qtdAvaria = parseInt(document.getElementById('devQtdAvaria').value) || 0;
+            const qtdPerdida = parseInt(document.getElementById('devQtdPerdida').value) || 0;
+
+            const totalConferido = qtdOk + qtdAvaria + qtdPerdida;
+            const diferenca = emp.qtd - totalConferido;
+
+            const boxMotivo = document.getElementById('boxMotivoAvaria');
+            const btnSubmit = document.getElementById('btnConfirmarDev');
+
+            boxMotivo.style.display = (qtdAvaria > 0 || qtdPerdida > 0) ? 'block' : 'none';
+
+            let statusMsg = document.getElementById('msgTravaAudit');
+            if (!statusMsg) {
+                statusMsg = document.createElement('div');
+                statusMsg.id = 'msgTravaAudit';
+                statusMsg.style.cssText = 'padding:8px 12px; margin-top:10px; border-radius:6px; font-weight:bold; font-size:0.85rem; text-align:center;';
+                document.querySelector('#modalDevolucao form').insertBefore(statusMsg, btnSubmit);
+            }
+
+            if (diferenca !== 0) {
+                statusMsg.style.background = '#fef2f2';
+                statusMsg.style.color = 'var(--danger)';
+                statusMsg.style.border = '1px solid #fca5a5';
+                statusMsg.innerHTML = diferenca > 0 
+                    ? `⚠️ Faltam prestar conta de <strong>${diferenca}</strong> unidade(s).` 
+                    : `⚠️ A soma excede em <strong>${Math.abs(diferenca)}</strong> unidade(s)!`;
+                btnSubmit.disabled = true;
+            } else {
+                statusMsg.style.background = '#f0fdf4';
+                statusMsg.style.color = 'var(--success)';
+                statusMsg.style.border = '1px solid #86efac';
+                statusMsg.innerHTML = `✅ Conferência exata! (${emp.qtd} unidades contabilizadas)`;
+                btnSubmit.disabled = false;
+            }
+        }
+
+        function confirmarInventarioReverso(e) {
+            e.preventDefault();
+            if (perfilUsuarioAtual === 'solicitante') return;
+            if (!emprestimoSelecionadoId) return;
+
+            const btnSubmit = document.getElementById('btnConfirmarDev');
+            btnSubmit.disabled = true;
+
+            const emp = emprestimos.find(e => e.id === emprestimoSelecionadoId);
+            const itemEstoque = estoque.find(i => i.id === emp.itemId);
+
+            const quemDevolveu = document.getElementById('devQuemDevolveu').value.trim();
+            const qtdOk = parseInt(document.getElementById('devQtdOk').value) || 0;
+            const qtdAvaria = parseInt(document.getElementById('devQtdAvaria').value) || 0;
+            const qtdPerdida = parseInt(document.getElementById('devQtdPerdida').value) || 0;
+            const justificativa = document.getElementById('devJustificativa').value.trim();
+
+            if ((qtdAvaria > 0 || qtdPerdida > 0) && !justificativa) {
+                alert('⚠️ Preencha a justificativa das avarias/perdas!');
+                btnSubmit.disabled = false;
+                return;
+            }
+
+            if (itemEstoque) {
+                const totalDanificados = qtdAvaria + qtdPerdida;
+                db.ref('estoque/' + itemEstoque.id).update({
+                    disponivel: (itemEstoque.disponivel || 0) + qtdOk,
+                    qtd: (itemEstoque.qtd || 0) - totalDanificados,
+                    perdas: (itemEstoque.perdas || 0) + totalDanificados
+                });
+            }
+
+            let resumoStr = `Perfeitas: ${qtdOk}`;
+            if (qtdAvaria > 0) resumoStr += ` | 🔴 Avaria: ${qtdAvaria}`;
+            if (qtdPerdida > 0) resumoStr += ` | ⚠️ Perdida: ${qtdPerdida}`;
+            if (justificativa) resumoStr += ` (${justificativa})`;
+
+            const atualizacaoEmp = {
+                status: (qtdAvaria > 0 || qtdPerdida > 0) ? 'AVARIA' : 'DEVOLVIDO',
+                dataRetorno: new Date().toLocaleString('pt-BR'),
+                devolvidoPor: quemDevolveu,
+                detalheReverso: resumoStr
+            };
+
+            db.ref('emprestimos/' + emp.id).update(atualizacaoEmp)
+                .then(() => {
+                    fecharModal('modalDevolucao');
+                    alert('✅ Devolução registrada com sucesso!');
+                })
+                .finally(() => { btnSubmit.disabled = false; });
+        }
+
+        function renderizarEmprestimos() {
+            const container = document.getElementById('listaEmprestimos');
+            container.innerHTML = '';
+            const pendentes = emprestimos.filter(e => e.status === 'PENDENTE');
+
+            if (pendentes.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#64748b; padding:20px;">Nenhum item pendente de devolução! 🎉</p>';
+                return;
+            }
+
+            const eStewardOuAdmin = (perfilUsuarioAtual === 'steward' || perfilUsuarioAtual === 'admin');
+
+            pendentes.forEach(emp => {
+                const btnDevolucaoHtml = eStewardOuAdmin ? `
+                    <button class="btn btn-success" style="width:auto; padding:8px 16px; font-size:0.85rem;" onclick="abrirModalDevolucao(${emp.id})">
+                        🔎 Inventário Reverso / Devolver
+                    </button>
+                ` : `<span style="font-size:0.8rem; color:#64748b; font-weight:bold;">Aguardando Devolução ao Steward</span>`;
+
+                container.innerHTML += `
+                    <div class="emp-card">
+                        <div class="emp-header">
+                            <span>${emp.qtd}x ${emp.itemNome}</span>
+                            <span class="badge badge-pendente">Fora do Setor</span>
+                        </div>
+                        <div class="emp-detail">📍 <strong>Local de Origem:</strong> ${emp.localOriginal}</div>
+                        <div class="emp-detail">👤 <strong>Solicitante:</strong> ${emp.solicitante}</div>
+                        <div class="emp-detail">🚪 <strong>Destino:</strong> ${emp.destino}</div>
+                        <div class="emp-detail">🕒 <strong>Data Saída:</strong> ${emp.dataSaida}</div>
+                        
+                        <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:flex-end;">
+                            <div>
+                                <span style="font-size:0.75rem; color:#64748b; display:block;">Assinatura Saída:</span>
+                                <img src="${emp.assinatura}" class="emp-sig-preview">
+                            </div>
+                            ${btnDevolucaoHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function atualizarDashboard() {
+            let totalFisico = 0;
+            let totalEmUso = 0;
+            let totalAvarias = 0;
+
+            const mapaUso = {};
+            const mapaPerdas = {};
+
+            estoque.forEach(i => { totalFisico += (i.qtd || 0); totalAvarias += (i.perdas || 0); });
+
+            emprestimos.forEach(e => {
+                if (e.status === 'PENDENTE') totalEmUso += e.qtd;
+
+                mapaUso[e.itemNome] = (mapaUso[e.itemNome] || 0) + e.qtd;
+
+                if (e.status === 'AVARIA') {
+                    mapaPerdas[e.itemNome] = (mapaPerdas[e.itemNome] || 0) + 1;
+                }
+            });
+
+            document.getElementById('kpiEstoqueTotal').textContent = totalFisico;
+            document.getElementById('kpiEmUso').textContent = totalEmUso;
+            document.getElementById('kpiAvariasTotal').textContent = totalAvarias;
+
+            renderizarChartUsados(mapaUso);
+            renderizarChartPerdidos(mapaPerdas);
+        }
+
+        function renderizarChartUsados(dataMap) {
+            const canvas = document.getElementById('chartMaisUsados');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const sortedKeys = Object.keys(dataMap).sort((a,b) => dataMap[b] - dataMap[a]).slice(0, 5);
+            const values = sortedKeys.map(k => dataMap[k]);
+
+            if (chartUsadosInstance) chartUsadosInstance.destroy();
+
+            chartUsadosInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedKeys,
+                    datasets: [{ label: 'Qtd Retirada', data: values, backgroundColor: '#00463f' }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderizarChartPerdidos(dataMap) {
+            const canvas = document.getElementById('chartMaisPerdidos');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const sortedKeys = Object.keys(dataMap).sort((a,b) => dataMap[b] - dataMap[a]).slice(0, 5);
+            const values = sortedKeys.map(k => dataMap[k]);
+
+            if (chartPerdidosInstance) chartPerdidosInstance.destroy();
+
+            chartPerdidosInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedKeys.length > 0 ? sortedKeys : ['Sem Avarias'],
+                    datasets: [{ label: 'Ocorrências', data: values.length > 0 ? values : [0], backgroundColor: '#dc2626' }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function aplicarFiltroMesRapido(tipo) {
+            const hoje = new Date();
+            const inicioInput = document.getElementById('filtroDataInicio');
+            const fimInput = document.getElementById('filtroDataFim');
+
+            if (tipo === 'MES_ATUAL') {
+                const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+                inicioInput.value = primeiroDia.toISOString().slice(0,10);
+                fimInput.value = hoje.toISOString().slice(0,10);
+            } else if (tipo === 'MES_ANTERIOR') {
+                const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+                const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+                inicioInput.value = primeiroDia.toISOString().slice(0,10);
+                fimInput.value = ultimoDia.toISOString().slice(0,10);
+            } else {
+                inicioInput.value = '';
+                fimInput.value = '';
+            }
+            filtrarRelatorio();
+        }
+
+        function setFiltroStatus(status, el) {
+            statusFiltroAtual = status;
+            document.querySelectorAll('.btn-filter-status').forEach(btn => btn.classList.remove('active'));
+            el.classList.add('active');
+            filtrarRelatorio();
+        }
+
+        function converterDataParaComparacao(strData) {
+            if (!strData || strData === '-') return null;
+            const partes = strData.split(',');
+            const dataPartes = partes[0].trim().split('/');
+            if (dataPartes.length !== 3) return null;
+            return new Date(dataPartes[2], dataPartes[1] - 1, dataPartes[0]);
+        }
+
+        function filtrarRelatorio() {
+            const filtroInput = document.getElementById('filtroTexto');
+            if(!filtroInput) return;
+            const termo = filtroInput.value.toLowerCase().trim();
+            const dtInicio = document.getElementById('filtroDataInicio').value ? new Date(document.getElementById('filtroDataInicio').value + 'T00:00:00') : null;
+            const dtFim = document.getElementById('filtroDataFim').value ? new Date(document.getElementById('filtroDataFim').value + 'T23:59:59') : null;
+
+            emprestimosFiltrados = emprestimos.filter(emp => {
+                const matchTexto = emp.itemNome.toLowerCase().includes(termo) ||
+                                   emp.solicitante.toLowerCase().includes(termo) ||
+                                   (emp.devolvidoPor && emp.devolvidoPor.toLowerCase().includes(termo));
+                
+                let matchStatus = true;
+                if (statusFiltroAtual !== 'TODOS') matchStatus = emp.status === statusFiltroAtual;
+
+                let matchData = true;
+                const dataObj = converterDataParaComparacao(emp.dataSaida);
+                if (dataObj) {
+                    if (dtInicio && dataObj < dtInicio) matchData = false;
+                    if (dtFim && dataObj > dtFim) matchData = false;
+                }
+
+                return matchTexto && matchStatus && matchData;
+            });
+
+            paginaAtual = 1;
+            renderizarRelatorio();
+        }
+
+        function renderizarRelatorio() {
+            const tbody = document.getElementById('tabelaRelatorio');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const total = emprestimosFiltrados.length;
+            if (total === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhuma movimentação encontrada.</td></tr>';
+                atualizarPaginacao(0, 0, 0);
+                return;
+            }
+
+            const inicio = (paginaAtual - 1) * itensPorPagina;
+            const fim = Math.min(inicio + itensPorPagina, total);
+            const itensPagina = emprestimosFiltrados.slice(inicio, fim);
+
+            const imgPlaceholder = 'https://via.placeholder.com/50?text=Sem+Foto';
+            const eStewardOuAdmin = (perfilUsuarioAtual === 'steward' || perfilUsuarioAtual === 'admin');
+
+            itensPagina.forEach(emp => {
+                let statusBadge = `<span class="badge badge-ok">Devolvido (OK)</span>`;
+                if (emp.status === 'PENDENTE') statusBadge = `<span class="badge badge-pendente">Em Uso</span>`;
+                else if (emp.status === 'AVARIA') statusBadge = `<span class="badge badge-avaria">Avaria/Perda</span>`;
+
+                const itemEstoque = estoque.find(i => i.id === emp.itemId);
+                const fotoItem = (itemEstoque && itemEstoque.foto) ? itemEstoque.foto : imgPlaceholder;
+
+                const btnExcluirHtml = eStewardOuAdmin ? `
+                    <button class="btn btn-danger" style="padding: 6px 10px; font-size: 0.75rem; width: auto; display: inline-flex;" onclick="excluirHistorico(${emp.id})">
+                        🗑️ Excluir
+                    </button>
+                ` : `<span style="font-size:0.75rem; color:#94a3b8;">🔒 Restrito</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <img src="${fotoItem}" style="width: 45px; height: 45px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; padding: 2px;">
+                                <div>
+                                    <strong>${emp.itemNome}</strong>
+                                    <div style="font-size:0.75rem; color:#64748b;">📍 ${emp.localOriginal || '-'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><strong>${emp.qtd}</strong></td>
+                        <td>
+                            <b>${emp.solicitante}</b><br>
+                            <small style="color:#64748b;">🚪 ${emp.destino}</small><br>
+                            ${emp.assinatura ? `<img src="${emp.assinatura}" style="height: 28px; width: auto; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; margin-top: 3px;" title="Assinatura">` : ''}
+                        </td>
+                        <td>${emp.devolvidoPor || '-'}</td>
+                        <td>
+                            <small><b>Saída:</b> ${emp.dataSaida}</small><br>
+                            <small><b>Retorno:</b> ${emp.dataRetorno}</small>
+                        </td>
+                        <td>
+                            ${statusBadge}<br>
+                            <small style="color:#475569;">${emp.detalheReverso || '-'}</small>
+                        </td>
+                        <td style="text-align: center;">
+                            ${btnExcluirHtml}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            atualizarPaginacao(inicio + 1, fim, total);
+        }
+
+        function atualizarPaginacao(inicio, fim, total) {
+            const info = document.getElementById('infoPaginacao');
+            if(!info) return;
+            info.textContent = total > 0 ? `Exibindo ${inicio}-${fim} de ${total} registros` : 'Exibindo 0-0 de 0 registros';
+
+            const containerBotoes = document.getElementById('botoesPaginacao');
+            if(!containerBotoes) return;
+            containerBotoes.innerHTML = '';
+
+            const totalPaginas = Math.ceil(total / itensPorPagina);
+            if (totalPaginas <= 1) return;
+
+            const btnAnt = document.createElement('button');
+            btnAnt.className = 'btn-page';
+            btnAnt.textContent = '◀ Anterior';
+            btnAnt.disabled = paginaAtual === 1;
+            btnAnt.onclick = () => { paginaAtual--; renderizarRelatorio(); };
+            containerBotoes.appendChild(btnAnt);
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                const btn = document.createElement('button');
+                btn.className = `btn-page ${i === paginaAtual ? 'active' : ''}`;
+                btn.textContent = i;
+                btn.onclick = () => { paginaAtual = i; renderizarRelatorio(); };
+                containerBotoes.appendChild(btn);
+            }
+
+            const btnProx = document.createElement('button');
+            btnProx.className = 'btn-page';
+            btnProx.textContent = 'Próximo ▶';
+            btnProx.disabled = paginaAtual === totalPaginas;
+            btnProx.onclick = () => { paginaAtual++; renderizarRelatorio(); };
+            containerBotoes.appendChild(btnProx);
+        }
+
+        function exportarExcel() {
+            const dados = emprestimosFiltrados.length > 0 ? emprestimosFiltrados : emprestimos;
+            if (dados.length === 0) { alert("Não há dados para exportar!"); return; }
+
+            let csv = 'Unidade;Item;Qtd Saida;Solicitante;Devolvido Por;Data Saida;Data Retorno;Status;Detalhes\n';
+            dados.forEach(e => {
+                csv += `"${unidadeAtual}";"${e.itemNome}";"${e.qtd}";"${e.solicitante}";"${e.devolvidoPor}";"${e.dataSaida}";"${e.dataRetorno}";"${e.status}";"${e.detalheReverso}"\n`;
+            });
+
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `relatorio_steward_${unidadeAtual}_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+        }
+
+        function abrirModalItem(idItem) {
+            const item = estoque.find(i => i.id === idItem);
+            if (!item) return;
+
+            itemSelecionadoId = idItem;
+            fotoCapturadaEdicao = null;
+            saldosEdicaoLiberados = false;
+
+            const imgPlaceholder = 'https://via.placeholder.com/300x180?text=Sem+Foto';
+
+            document.getElementById('modalImg').src = item.foto || imgPlaceholder;
+            document.getElementById('editNome').value = item.nome;
+            document.getElementById('editLocal').value = item.local;
+            
+            document.getElementById('editQtdTotal').value = item.qtd;
+            document.getElementById('editQtdTotal').disabled = true;
+            
+            document.getElementById('editQtdDisp').value = item.disponivel;
+            document.getElementById('editQtdDisp').disabled = true;
+            
+            document.getElementById('editQtdPerdas').value = item.perdas || 0;
+            document.getElementById('editQtdPerdas').disabled = true;
+
+            const isSolicitante = (perfilUsuarioAtual === 'solicitante');
+            
+            document.getElementById('editNome').disabled = isSolicitante;
+            document.getElementById('editLocal').disabled = isSolicitante;
+            
+            document.getElementById('areaFotosModalEdit').style.display = isSolicitante ? 'none' : 'block';
+            document.getElementById('btnDesbloquearSaldos').style.display = isSolicitante ? 'none' : 'inline-block';
+            document.getElementById('areaBotoesModalEdit').style.display = isSolicitante ? 'none' : 'flex';
+
+            document.getElementById('modalItem').classList.add('active');
+        }
+
+        async function solicitarDesbloqueioAuditor() {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            const senhaDigitada = prompt("🔒 ÁREA RESTRITA DO AUDITOR\nDigite a senha do auditor (2189) para alterar saldos:");
+            if (!senhaDigitada) return;
+
+            let valida = (senhaDigitada.trim() === "2189");
+            if (!valida) {
+                const hashDigitado = await gerarHash(senhaDigitada.trim());
+                if (hashDigitado === SENHA_AUDITOR_HASH) valida = true;
+            }
+
+            if (valida) {
+                saldosEdicaoLiberados = true;
+                document.getElementById('editQtdTotal').disabled = false;
+                document.getElementById('editQtdDisp').disabled = false;
+                document.getElementById('editQtdPerdas').disabled = false;
+                document.getElementById('btnDesbloquearSaldos').style.display = 'none';
+                alert("🔓 Saldos liberados para edição!");
+            } else {
+                alert("❌ Senha do auditor incorreta!");
+            }
+        }
+
+        async function salvarEdicaoItem(e) {
+            e.preventDefault();
+            if (perfilUsuarioAtual === 'solicitante') return;
+            if (!itemSelecionadoId) return;
+
+            const item = estoque.find(i => i.id === itemSelecionadoId);
+            if (!item) return;
+
+            const novaQtdTotal = parseInt(document.getElementById('editQtdTotal').value) || 0;
+            const novaQtdDisp = parseInt(document.getElementById('editQtdDisp').value) || 0;
+            const novaQtdPerdas = parseInt(document.getElementById('editQtdPerdas').value) || 0;
+
+            const salvarAtualizacao = (fotoBase64) => {
+                const atualizacao = {
+                    nome: document.getElementById('editNome').value,
+                    local: document.getElementById('editLocal').value
+                };
+
+                if (saldosEdicaoLiberados) {
+                    atualizacao.qtd = novaQtdTotal;
+                    atualizacao.disponivel = novaQtdDisp;
+                    atualizacao.perdas = novaQtdPerdas;
+                }
+
+                if (fotoBase64) atualizacao.foto = fotoBase64;
+
+                db.ref('estoque/' + item.id).update(atualizacao).then(() => fecharModal('modalItem'));
+            };
+
+            if (fotoCapturadaEdicao) comprimirEConverterImagem(fotoCapturadaEdicao, salvarAtualizacao);
+            else salvarAtualizacao(null);
+        }
+
+        async function excluirItemDoModal() {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            if (!itemSelecionadoId) return;
+            const item = estoque.find(i => i.id === itemSelecionadoId);
+            if (!item) return;
+
+            const temPendente = emprestimos.some(e => e.itemId === itemSelecionadoId && e.status === 'PENDENTE');
+            if (temPendente) { alert(`⚠️ Não é possível excluir pois existem unidades fora em eventos.`); return; }
+
+            const senha = prompt(`🔒 Digite a senha do auditor para excluir "${item.nome}":`);
+            if (senha) {
+                let valida = (senha.trim() === "2189");
+                if (!valida) {
+                    const hashDigitado = await gerarHash(senha.trim());
+                    if (hashDigitado === SENHA_AUDITOR_HASH) valida = true;
+                }
+
+                if (valida) {
+                    if (confirm(`Confirma a exclusão permanente de "${item.nome}"?`)) {
+                        db.ref('estoque/' + item.id).remove().then(() => fecharModal('modalItem'));
+                    }
+                } else {
+                    alert('❌ Senha incorreta!');
+                }
+            }
+        }
+
+        async function excluirHistorico(idEmprestimo) {
+            if (perfilUsuarioAtual === 'solicitante') return;
+            const emp = emprestimos.find(e => e.id === idEmprestimo);
+            if (!emp) return;
+
+            const senha = prompt(`🔒 Digite a senha do auditor para excluir este registro:`);
+            if (senha) {
+                let valida = (senha.trim() === "2189");
+                if (!valida) {
+                    const hashDigitado = await gerarHash(senha.trim());
+                    if (hashDigitado === SENHA_AUDITOR_HASH) valida = true;
+                }
+
+                if (valida) {
+                    if (confirm(`Confirma a exclusão deste histórico?`)) {
+                        db.ref('emprestimos/' + emp.id).remove();
+                    }
+                } else {
+                    alert('❌ Senha incorreta!');
+                }
+            }
+        }
+
+        function fecharModal(idModal) {
+            document.getElementById(idModal).classList.remove('active');
+            itemSelecionadoId = null;
+            emprestimoSelecionadoId = null;
+            pedidoSelecionadoId = null;
+        }
+
+        function fecharModalSeForFora(e, idModal) {
+            if (e.target.id === idModal) fecharModal(idModal);
+        }
+
+        // SOLICITAÇÃO VISUAL DE ITENS PELO SOLICITANTE
+
+        function filtrarGaleriaSolicitacao() {
+            const input = document.getElementById('solicBuscaItem');
+            if(!input) return;
+            const termo = input.value.toLowerCase().trim();
+            const grid = document.getElementById('solicGridGaleria');
+            if(!grid) return;
+            grid.innerHTML = '';
+
+            const itensFiltrados = estoque.filter(item => item.disponivel > 0 && item.nome.toLowerCase().includes(termo));
+
+            if (itensFiltrados.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#64748b; padding:15px; font-size:0.85rem;">Nenhum item disponível encontrado.</div>';
+                return;
+            }
+
+            const imgPlaceholder = 'https://via.placeholder.com/150?text=Sem+Foto';
+            itensFiltrados.forEach(item => {
+                const isSelected = document.getElementById('solicItemId').value == item.id ? 'selected' : '';
+                grid.innerHTML += `
+                    <div class="select-card ${isSelected}" onclick="selecionarItemSolicitacao(${item.id})">
+                        <img src="${item.foto || imgPlaceholder}" class="select-card-img">
+                        <div class="select-card-title">${item.nome}</div>
+                        <div class="select-card-badge">Disp: ${item.disponivel}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function selecionarItemSolicitacao(idItem) {
+            const item = estoque.find(i => i.id === idItem);
+            if (!item) return;
+
+            document.getElementById('solicItemId').value = item.id;
+            filtrarGaleriaSolicitacao();
+
+            const imgPlaceholder = 'https://via.placeholder.com/150?text=Sem+Foto';
+            document.getElementById('solicPrevImg').src = item.foto || imgPlaceholder;
+            document.getElementById('solicPrevNome').textContent = item.nome;
+            document.getElementById('solicPrevDisp').textContent = item.disponivel;
+            document.getElementById('solicPreviewItem').classList.add('active');
+        }
+
+        function abrirModalSolicitacaoEvento() {
+            document.getElementById('solicBuscaItem').value = '';
+            document.getElementById('solicItemId').value = '';
+            document.getElementById('solicPreviewItem').classList.remove('active');
+            document.getElementById('solicQtd').value = 1;
+            document.getElementById('solicNome').value = '';
+            document.getElementById('solicDestino').value = '';
+            
+            const hoje = new Date();
+            document.getElementById('solicDataEvento').value = hoje.toISOString().slice(0, 10);
+
+            hoje.setMinutes(hoje.getMinutes() + 15);
+            document.getElementById('solicHorario').value = hoje.toTimeString().slice(0,5);
+
+            document.getElementById('modalSolicitarSetor').classList.add('active');
+            filtrarGaleriaSolicitacao();
+        }
+
+        function enviarSolicitacaoSetor(e) {
+            e.preventDefault();
+            const itemId = parseInt(document.getElementById('solicItemId').value);
+
+            if (!itemId) { 
+                alert(idiomaAtual === "ES" ? "⚠️ ¡Seleccione un artículo de la galería!" : "⚠️ Selecione um item na galeria visual!"); 
+                return; 
+            }
+
+            const itemEstoque = estoque.find(i => i.id === itemId);
+            const qtd = parseInt(document.getElementById('solicQtd').value);
+            const dataEventoRaw = document.getElementById('solicDataEvento') ? document.getElementById('solicDataEvento').value : new Date().toISOString().slice(0, 10);
+            const horario = document.getElementById('solicHorario').value;
+            const solicitante = document.getElementById('solicNome').value;
+            const destino = document.getElementById('solicDestino').value;
+
+            if (qtd > itemEstoque.disponivel) {
+                alert(idiomaAtual === "ES" 
+                    ? `⚠️ ¡Cantidad no disponible! Disponible: ${itemEstoque.disponivel}` 
+                    : `⚠️ Quantidade indisponível no estoque! Disponível: ${itemEstoque.disponivel}`);
+                return;
+            }
+
+            const partesData = dataEventoRaw.split('-');
+            const dataEventoFmt = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+
+            const novoPedId = Date.now();
+            const novoPedido = {
+                id: novoPedId,
+                itemId: itemEstoque.id,
+                itemNome: itemEstoque.nome,
+                qtd: qtd,
+                solicitante: solicitante,
+                destino: `${destino} (Entrega: ${dataEventoFmt} às ${horario}h)`,
+                dataPedido: new Date().toLocaleString('pt-BR'),
+                status: 'SOLICITADO',
+                unidade: unidadeAtual
+            };
+
+            const btnSubmit = document.getElementById('btnEnviarSolic');
+            if (btnSubmit) btnSubmit.disabled = true;
+
+            const novoSaldoDisp = itemEstoque.disponivel - qtd;
+            
+            db.ref('estoque/' + itemEstoque.id).update({ 
+                disponivel: novoSaldoDisp 
+            })
+            .then(() => {
+                return db.ref('pedidos/' + novoPedId).set(novoPedido);
+            })
+            .then(() => {
+                alert(idiomaAtual === "ES"
+                    ? `✅ ¡Solicitud enviada al Steward y ${qtd} piezas reservadas en el inventario!\nFecha del evento: ${dataEventoFmt} a las ${horario}h`
+                    : `✅ Pedido enviado ao Steward e ${qtd} peças reservadas no estoque!\nData do evento: ${dataEventoFmt} às ${horario}h`);
+                
+                fecharModal('modalSolicitarSetor');
+            })
+            .catch((err) => {
+                alert("❌ Erro ao processar pedido: " + err.message);
+            })
+            .finally(() => {
+                if (btnSubmit) btnSubmit.disabled = false;
+            });
+        }
+
+        // TRADUÇÃO DINÂMICA INTERNACIONAL
+        let idiomaAtual = "PT";
+
+        function verificarIdiomaHotel(unidade) {
+            const unidadesInternacionais = ["asuncion", "ciudad_del_este", "buenos_aires"];
+            if (unidadesInternacionais.includes(unidade)) {
+                aplicarIdioma("ES");
+            } else {
+                aplicarIdioma("PT");
+            }
+        }
+
+        function aplicarIdioma(lang) {
+            idiomaAtual = lang;
+
+            const card = document.querySelector('.login-card');
+            if (!card) return;
+
+            const h2 = card.querySelector('h2');
+            const p = card.querySelector('p');
+            const btnEntrarTab = document.querySelectorAll('.login-tab-btn')[0];
+            const btnCriarTab = document.querySelectorAll('.login-tab-btn')[1];
+
+            const formLogin = document.getElementById('formLogin');
+            const labelsLogin = formLogin ? formLogin.querySelectorAll('label') : [];
+            const btnSubmitLogin = formLogin ? formLogin.querySelector('button[type="submit"]') : null;
+            const inputUser = document.getElementById("loginUsuario");
+            const inputPass = document.getElementById("loginSenha");
+
+            const formCriar = document.getElementById('formCriarConta');
+            const btnSubmitCriar = formCriar ? formCriar.querySelector('button[type="submit"]') : null;
+            const inputCadUser = document.getElementById("cadUserUsuario");
+            const inputCadPass = document.getElementById("cadUserSenha");
+
+            const labelCadUser = inputCadUser ? inputCadUser.parentElement.querySelector('label') : null;
+            const labelCadPass = inputCadPass ? inputCadPass.parentElement.querySelector('label') : null;
+
+            const headerH1 = document.querySelector('header h1');
+            const tabEmprestimos = document.getElementById('btnTabEmprestimos');
+            const tabPedidos = document.getElementById('btnTabPedidos');
+            const tabNovaReq = document.getElementById('btnTabNovaReq');
+            const tabEstoque = document.getElementById('btnTabEstoque');
+            const tabDashboard = document.getElementById('btnTabDashboard');
+            const tabRelatorios = document.getElementById('btnTabRelatorios');
+            const seletorModulo = document.getElementById('seletorModuloOperacao');
+
+            if (lang === "ES") {
+                if (h2) h2.innerText = "Control de Inventario y Auditoría";
+                if (p) p.innerText = "Seleccione la unidad e ingrese con su cuenta";
+                if (btnEntrarTab) btnEntrarTab.innerText = "🔑 Iniciar Sesión";
+                if (btnCriarTab) btnCriarTab.innerText = "➕ Crear Usuario / Hotel";
+
+                if (labelsLogin[0]) labelsLogin[0].innerText = "🏨 Seleccione la Unidad / Hotel:";
+                if (labelsLogin[1]) labelsLogin[1].innerText = "Usuario:";
+                if (labelsLogin[2]) labelsLogin[2].innerText = "Contraseña:";
+                if (btnSubmitLogin) btnSubmitLogin.innerText = "🚀 Acceder al Sistema";
+                if (inputUser) inputUser.placeholder = "Ingrese el usuario...";
+                if (inputPass) inputPass.placeholder = "Ingrese la contraseña...";
+
+                if (labelCadUser) labelCadUser.innerText = "Nuevo Usuario:";
+                if (labelCadPass) labelCadPass.innerText = "Contraseña:";
+                if (btnSubmitCriar) btnSubmitCriar.innerText = "💾 Registrar Cuenta y Configurar";
+                if (inputCadUser) inputCadUser.placeholder = "Ingrese el usuario...";
+                if (inputCadPass) inputCadPass.placeholder = "Ingrese la contraseña...";
+
+                if (seletorModulo && seletorModulo.options.length >= 2) {
+                    seletorModulo.options[0].text = "🚪 Módulo: Retiro Directo (Mostrador)";
+                    seletorModulo.options[1].text = "📋 Módulo: Solicitudes y Eventos";
+                }
+
+                if (headerH1) headerH1.innerText = "Gestión y Auditoría de Loza - Steward";
+                if (tabEmprestimos) tabEmprestimos.innerText = "📌 En Uso (Eventos)";
+                if (tabPedidos) tabPedidos.innerText = "🚚 Solicitudes y Entregas";
+                if (tabNovaReq) tabNovaReq.innerText = "📝 Salida Directa (Mostrador)";
+                if (tabEstoque) tabEstoque.innerText = "📦 Inventario y Ubicación";
+                if (tabDashboard) tabDashboard.innerText = "📈 Dashboard Visual";
+                if (tabRelatorios) tabRelatorios.innerText = "📊 Reportes y Auditoría";
+
+            } else {
+                if (h2) h2.innerText = "Controle de Estoque & Auditoria";
+                if (p) p.innerText = "Selecione a unidade e entre com sua conta";
+                if (btnEntrarTab) btnEntrarTab.innerText = "🔑 Entrar";
+                if (btnCriarTab) btnCriarTab.innerText = "➕ Criar Usuário / Hotel";
+
+                if (labelsLogin[0]) labelsLogin[0].innerText = "🏨 Selecione a Unidade / Hotel:";
+                if (labelsLogin[1]) labelsLogin[1].innerText = "Usuário:";
+                if (labelsLogin[2]) labelsLogin[2].innerText = "Senha:";
+                if (btnSubmitLogin) btnSubmitLogin.innerText = "🚀 Acessar Sistema";
+                if (inputUser) inputUser.placeholder = "Digite o usuário...";
+                if (inputPass) inputPass.placeholder = "Digite a senha...";
+
+                if (labelCadUser) labelCadUser.innerText = "Novo Usuário:";
+                if (labelCadPass) labelCadPass.innerText = "Senha:";
+                if (btnSubmitCriar) btnSubmitCriar.innerText = "💾 Cadastrar Conta & Configurar";
+                if (inputCadUser) inputCadUser.placeholder = "Digite o usuário...";
+                if (inputCadPass) inputCadPass.placeholder = "Digite a senha...";
+
+                if (seletorModulo && seletorModulo.options.length >= 2) {
+                    seletorModulo.options[0].text = "🚪 Módulo: Balcão (Saída Direta)";
+                    seletorModulo.options[1].text = "📋 Módulo: Solicitação & Eventos";
+                }
+
+                if (headerH1) headerH1.innerText = "Gestão & Auditoria de Louças - Steward";
+                if (tabEmprestimos) tabEmprestimos.innerText = "📌 Em Uso (Eventos)";
+                if (tabPedidos) tabPedidos.innerText = "🚚 Solicitações & Entregas";
+                if (tabNovaReq) tabNovaReq.innerText = "📝 Saída Direta (Balcão)";
+                if (tabEstoque) tabEstoque.innerText = "📦 Estoque & Locais";
+                if (tabDashboard) tabDashboard.innerText = "📈 Dashboard Visual";
+                if (tabRelatorios) tabRelatorios.innerText = "📊 Relatórios & Auditoria";
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const selectLogin = document.getElementById("loginUnidade");
+            if (selectLogin) {
+                verificarIdiomaHotel(selectLogin.value);
+                selectLogin.addEventListener('change', function() {
+                    verificarIdiomaHotel(this.value);
+                });
+            }
+        });
+
+        // CRIPTOGRAFIA E SHA-256
+        async function gerarHash(texto) {
+            try {
+                if (window.crypto && window.crypto.subtle) {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(texto);
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+            } catch (e) {}
+            return sha256Fallback(texto);
+        }
+
+        function sha256Fallback(ascii) {
+            function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+            var mathPow = Math.pow, maxWord = mathPow(2, 32), lengthProperty = 'length', i, j, result = '', words = [];
+            var asciiBitLength = ascii[lengthProperty] * 8;
+            var hash = sha256Fallback.h = sha256Fallback.h || [];
+            var k = sha256Fallback.k = sha256Fallback.k || [];
+            var primeCounter = k[lengthProperty], isComposite = {};
+            for (var candidate = 2; primeCounter < 64; candidate++) {
+                if (!isComposite[candidate]) {
+                    for (i = 0; i < 300; i += candidate) isComposite[i] = true;
+                    hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+                    k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+                }
+            }
+            ascii += '\x80';
+            while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+            for (i = 0; i < ascii[lengthProperty]; i++) {
+                j = ascii.charCodeAt(i);
+                if (j >> 8) return;
+                words[i >> 2] |= j << ((3 - i % 4) * 8);
+            }
+            words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+            words[words[lengthProperty]] = (asciiBitLength | 0);
+            for (j = 0; j < words[lengthProperty];) {
+                var w = words.slice(j, j += 16), oldHash = hash;
+                hash = hash.slice(0, 8);
+                for (i = 0; i < 64; i++) {
+                    var w15 = w[i - 15], w2 = w[i - 2];
+                    var a = hash[0], e = hash[4];
+                    var temp1 = hash[7]
+                        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+                        + ((e & hash[5]) ^ ((~e) & hash[6]))
+                        + k[i]
+                        + (w[i] = (i < 16) ? w[i] : (
+                            w[i - 16]
+                            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                            + w[i - 7]
+                            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+                        ) | 0);
+                    var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+                        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+
+                    hash = [(temp1 + temp2) | 0].concat(hash);
+                    hash[4] = (hash[4] + temp1) | 0;
+                }
+                for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (i = 0; i < 8; i++) {
+                for (j = 3; j + 1; j--) {
+                    var b = (hash[i] >> (j * 8)) & 255;
+                    result += (b < 16 ? '0' : '') + b.toString(16);
+                }
+            }
+            return result;
+        }
+    </script>
+
+    <footer>
+        <p>Desenvolvido por <strong>Lincoln C. Sanches</strong> &bull; Sistema Steward &bull; Bourbon Hotels & Resorts</p>
+    </footer>
+
+</body>
+</html>

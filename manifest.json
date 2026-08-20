@@ -1,0 +1,18 @@
+{
+  "short_name": "Steward",
+  "name": "Bourbon Stewardship | Controle de Estoque",
+  "icons": [
+    {
+      "src": "image_8.png",
+      "sizes": "513x513",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  
+  "start_url": "./index.html",
+  "background_color": "#00463f",
+  "theme_color": "#00463f",
+  "display": "standalone",
+  "orientation": "portrait"
+}

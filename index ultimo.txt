@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque A&B - Bourbon Hotels & Resorts</title>
+    
+    <!-- Firebase Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #00463F;
+            --primary-hover: #00322D;
+            --secondary-color: #2e7d32;
+            --danger-color: #c62828;
+            --warning-color: #ef6c00;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #cccccc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; padding-bottom: 60px; }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        header h1 { font-size: 1.5rem; font-weight: 600; }
+
+        nav.tabs {
+            display: flex;
+            background: #ffffff;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0 1rem;
+            gap: 5px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 0.8rem 1.2rem;
+            border: none;
+            background: none;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-btn:hover:not(.active) { color: var(--primary-hover); }
+
+        .container { max-width: 1280px; margin: 1.5rem auto; padding: 0 1rem; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+            border: 1px solid #e0e0e0;
+        }
+
+        .card-title { font-size: 1.2rem; font-weight: 700; color: var(--primary-color); margin-bottom: 1.2rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: #444; }
+        
+        input, select, textarea {
+            padding: 0.6rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        input:focus, select:focus, textarea:focus { border-color: var(--primary-color); }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-success { background: var(--secondary-color); color: white; }
+        .btn-warning { background: var(--warning-color); color: white; }
+
+        .table-responsive { overflow-x: auto; margin-top: 1rem; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+        th, td { padding: 0.75rem 0.8rem; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
+        th { background: #f8f9fa; color: #333; font-weight: 600; }
+        tr:hover { background-color: #f5f5f5; }
+
+        .img-thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; }
+
+        .signature-pad {
+            border: 2px dashed #999;
+            border-radius: 6px;
+            background-color: #fafafa;
+            cursor: crosshair;
+            touch-action: none;
+            width: 100%;
+            height: 150px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #888; }
+    </style>
+</head>
+<body>
+
+    <header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background-color: #00463F; color: white;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <img src="logo.png" alt="Bourbon Logo" style="height: 50px; width: auto; object-fit: contain; border: none; background: transparent; display: block;">
+        <div>
+            <h1 id="appTitle" style="margin: 0; font-size: 1.3rem; font-weight: 700; line-height: 1.2;">Controle de Estoque A&B</h1>
+            <p style="margin: 2px 0 0 0; font-size: 0.85rem; opacity: 0.85;">Gestão Corporativa & Steward</p>
+        </div>
+    </div>
+    <div id="userInfo" style="font-size:0.9rem; text-align: right;">Unidade: <span id="lblUnidadeHeader">Bourbon Atibaia</span></div>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab-btn active" onclick="trocarGuia('novaReq', event)">📝 Saída (Balcão)</button>
+        <button class="tab-btn" onclick="trocarGuia('cadastrarItem', event)">➕ Cadastrar Item</button>
+        <button class="tab-btn" onclick="trocarGuia('emUso', event)">🔄 Em Uso / Pendentes</button>
+        <button class="tab-btn" onclick="trocarGuia('estoqueMobilia', event)">🪑 Mobília Banquetes</button>
+        <button class="tab-btn" onclick="trocarGuia('estoqueRouparia', event)">🧺 Rouparia</button>
+        <button class="tab-btn" onclick="trocarGuia('estoqueMateriais', event)">🍽️ Materiais A&B</button>
+        <button class="tab-btn" onclick="trocarGuia('dashboard', event)">📈 Dashboard Visual</button>
+        <button class="tab-btn" onclick="trocarGuia('relatorios', event)">📊 Relatórios & Auditoria</button>
+    </nav>
+
+    <div class="container">
+
+        <!-- GUIA: SAÍDA DIRETA NO BALCÃO -->
+        <div id="tab-novaReq" class="tab-content active">
+            <div class="card">
+                <h2 class="card-title">📤 Registrar Saída de Material (Balcão)</h2>
+                <form id="formSaidaBalcao" onsubmit="registrarSaidaBalcaoAB(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Selecionar Item:</label>
+                            <select id="saidaItem" required onchange="atualizarEstoqueDisponivelBalcao()">
+                                <option value="">-- Selecione o Item --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tipo de Saída:</label>
+                            <select id="saidaTipoMovimento" required>
+                                <option value="emprestimo">🔄 Empréstimo (Irá para "Em Uso")</option>
+                                <option value="definitiva">🔴 Definitiva (Consumo/Baixa Direta)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria/Setor:</label>
+                            <input type="text" id="saidaCategoria" readonly style="background:#f1f5f9;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Estoque Atual Disponível:</label>
+                            <input type="number" id="saidaQtdDisponivel" readonly style="background:#f1f5f9;">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Quantidade Retirada:</label>
+                            <input type="number" id="saidaQtd" min="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Retirado por (Colaborador/Responsável):</label>
+                            <input type="text" id="saidaResponsavel" placeholder="Nome do colaborador" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Motivo / Evento / Destino:</label>
+                            <input type="text" id="saidaMotivo" placeholder="Ex: Montagem Evento Sala A" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.2rem;">
+                        <label>Assinatura Digital do Retirante:</label>
+                        <canvas id="canvasAssinatura" class="signature-pad"></canvas>
+                        <div style="margin-top: 5px;">
+                            <button type="button" class="btn btn-secondary" style="padding: 3px 10px; font-size: 0.8rem;" onclick="limparAssinatura()">🧹 Limpar Assinatura</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">✅ Confirmar Saída</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- GUIA: CADASTRAR NOVO ITEM NO ESTOQUE -->
+        <div id="tab-cadastrarItem" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">➕ Cadastrar Novo Item no Estoque A&B</h2>
+                <form id="formCadItem" onsubmit="salvarNovoItemAB(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Item:</label>
+                            <input type="text" id="cadNome" placeholder="Ex: Cadeira Sombra Gold" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tipo de Estoque (Aba Destino):</label>
+                            <select id="cadTipoEstoque" required>
+                                <option value="mobilia">Mobília Banquetes</option>
+                                <option value="rouparia">Rouparia</option>
+                                <option value="materiais">Materiais A&B</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria (Setor):</label>
+                            <select id="cadCategoria" required>
+                                <option value="Banquetes">Banquetes</option>
+                                <option value="Tom/Food Court">Tom/Food Court</option>
+                                <option value="Bares/Lobby/Juice">Bares/Lobby/Juice</option>
+                                <option value="Kibô">Kibô</option>
+                                <option value="Cave">Cave</option>
+                                <option value="Bares piscina">Bares piscina</option>
+                                <option value="Vezzoso Cucina">Vezzoso Cucina</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Quantidade Inicial:</label>
+                            <input type="number" id="cadQtd" min="1" placeholder="0" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Localização (Estante / Prateleira):</label>
+                            <input type="text" id="cadLocal" placeholder="Ex: Depósito A - Prateleira 2">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Foto do Item (Arquivo ou Câmera):</label>
+                            <input type="file" id="cadFoto" accept="image/*" capture="environment" onchange="previewImagem(event)">
+                        </div>
+                    </div>
+
+                    <div id="boxPreview" style="display:none; margin-bottom: 1rem;">
+                        <p style="font-size: 0.8rem; font-weight: 600;">Pré-visualização da Imagem:</p>
+                        <img id="imgPreview" src="" alt="Preview" style="max-height: 120px; border-radius: 6px; border: 1px solid #ccc; margin-top: 5px;">
+                    </div>
+
+                    <button type="submit" id="btnSalvarItem" class="btn btn-primary">💾 Salvar Item no Estoque A&B</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- GUIA: ITENS EM USO / EMPRESTADOS -->
+        <div id="tab-emUso" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">🔄 Itens Emprestados / Em Uso em Eventos e Setores</h2>
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <input type="text" id="buscaEmUso" placeholder="🔍 Pesquisar responsável, item ou setor..." onkeyup="filtrarTabela('tbEmUso', 'buscaEmUso')">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data/Hora Saída</th>
+                                <th>Item</th>
+                                <th>Categoria</th>
+                                <th>Qtd Em Uso</th>
+                                <th>Responsável</th>
+                                <th>Motivo/Destino</th>
+                                <th>Assinatura</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbEmUso"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUIA: ESTOQUE MOBÍLIA BANQUETES -->
+        <div id="tab-estoqueMobilia" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">🪑 Estoque: Mobília Banquetes</h2>
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <input type="text" id="buscaMobilia" placeholder="🔍 Pesquisar por nome ou categoria..." onkeyup="filtrarTabela('tbEstoqueMobilia', 'buscaMobilia')">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Item</th>
+                                <th>Categoria</th>
+                                <th>Localização</th>
+                                <th>Qtd Total</th>
+                                <th>Qtd Disponível</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbEstoqueMobilia"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUIA: ESTOQUE ROUPARIA -->
+        <div id="tab-estoqueRouparia" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">🧺 Estoque: Rouparia</h2>
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <input type="text" id="buscaRouparia" placeholder="🔍 Pesquisar por nome ou categoria..." onkeyup="filtrarTabela('tbEstoqueRouparia', 'buscaRouparia')">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Item</th>
+                                <th>Categoria</th>
+                                <th>Localização</th>
+                                <th>Qtd Total</th>
+                                <th>Qtd Disponível</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbEstoqueRouparia"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUIA: ESTOQUE MATERIAIS A&B -->
+        <div id="tab-estoqueMateriais" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">🍽️ Estoque: Materiais A&B</h2>
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <input type="text" id="buscaMateriais" placeholder="🔍 Pesquisar por nome ou categoria..." onkeyup="filtrarTabela('tbEstoqueMateriais', 'buscaMateriais')">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Item</th>
+                                <th>Categoria</th>
+                                <th>Localização</th>
+                                <th>Qtd Total</th>
+                                <th>Qtd Disponível</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbEstoqueMateriais"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUIA: DASHBOARD VISUAL -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">📈 Visão Geral do Estoque A&B</h2>
+                <div class="form-grid">
+                    <div style="max-width: 400px; margin: 0 auto; text-align: center;">
+                        <canvas id="chartCategorias"></canvas>
+                    </div>
+                    <div style="max-width: 400px; margin: 0 auto; text-align: center;">
+                        <canvas id="chartTiposEstoque"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GUIA: RELATÓRIOS E AUDITORIA -->
+        <div id="tab-relatorios" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">📊 Histórico de Movimentações A&B</h2>
+                <div style="margin-bottom: 1rem; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-success" onclick="exportarRelatorioCSVAB()">📥 Exportar Excel (CSV)</button>
+                    <input type="text" id="buscaHistorico" placeholder="🔍 Pesquisar no histórico..." onkeyup="filtrarTabela('tbHistoricoMovimentacoes', 'buscaHistorico')" style="max-width: 300px;">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Item</th>
+                                <th>Tipo de Saída</th>
+                                <th>Categoria</th>
+                                <th>Qtd</th>
+                                <th>Responsável</th>
+                                <th>Motivo/Destino</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbHistoricoMovimentacoes"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DEVOLUÇÃO -->
+    <div id="modalDevolucao" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close-modal" onclick="fecharModal('modalDevolucao')">&times;</span>
+            <h3 class="card-title">↩️ Registrar Devolução ao Estoque</h3>
+            <form id="formDevolucao" onsubmit="confirmarDevolucaoAB(event)">
+                <input type="hidden" id="devEmUsoId">
+                <input type="hidden" id="devItemId">
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Item:</label>
+                    <input type="text" id="devItemNome" readonly style="background:#f1f5f9;">
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Quantidade Atualmente em Uso:</label>
+                    <input type="number" id="devQtdEmUso" readonly style="background:#f1f5f9;">
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label>Quantidade que está sendo Devolvida:</label>
+                    <input type="number" id="devQtdDevolvida" min="1" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modalDevolucao')">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Devolução</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ITEM -->
+    <div id="modalEditarItem" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="fecharModal('modalEditarItem')">&times;</span>
+            <h3 class="card-title">✏️ Editar Item do Estoque A&B</h3>
+            <form id="formEditarItem" onsubmit="salvarEdicaoItemAB(event)">
+                <input type="hidden" id="editId">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Nome do Item:</label>
+                    <input type="text" id="editNome" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Tipo de Estoque:</label>
+                    <select id="editTipoEstoque" required>
+                        <option value="mobilia">Mobília Banquetes</option>
+                        <option value="rouparia">Rouparia</option>
+                        <option value="materiais">Materiais A&B</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Categoria (Setor):</label>
+                    <select id="editCategoria" required>
+                        <option value="Banquetes">Banquetes</option>
+                        <option value="Tom/Food Court">Tom/Food Court</option>
+                        <option value="Bares/Lobby/Juice">Bares/Lobby/Juice</option>
+                        <option value="Kibô">Kibô</option>
+                        <option value="Cave">Cave</option>
+                        <option value="Bares piscina">Bares piscina</option>
+                        <option value="Vezzoso Cucina">Vezzoso Cucina</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Localização:</label>
+                    <input type="text" id="editLocal">
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label>Quantidade Total em Estoque:</label>
+                    <input type="number" id="editQtdTotal" min="0" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label>Quantidade Disponível Atual:</label>
+                    <input type="number" id="editQtdDisponivel" min="0" required>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modalEditarItem')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL AUDITOR -->
+    <div id="modalSenhaAuditor" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-modal" onclick="fecharModal('modalSenhaAuditor')">&times;</span>
+            <h3 class="card-title">🔒 Autenticação de Auditor</h3>
+            <p style="font-size: 0.85rem; margin-bottom: 1rem; color: #666;">Digite a senha do auditor para autorizar esta ação (Edição/Exclusão).</p>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label>Senha do Auditor:</label>
+                <input type="password" id="senhaAuditorInput" placeholder="Digite a senha...">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="fecharModal('modalSenhaAuditor')">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarAcaoAuditor()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FOTO -->
+    <div id="modalFoto" class="modal">
+        <div class="modal-content" style="text-align: center; max-width: 500px;">
+            <span class="close-modal" onclick="fecharModal('modalFoto')">&times;</span>
+            <img id="imgModalAmpliada" src="" alt="Imagem Ampliada" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+        </div>
+    </div>
+
+    <script>
+        // Insira aqui suas credenciais reais do Firebase
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_PROJECT.firebaseapp.com",
+            databaseURL: "https://SEU_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "SEU_PROJECT",
+            storageBucket: "SEU_PROJECT.appspot.com",
+            messagingSenderId: "SEU_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        let db = null;
+        let refEstoque = null, refEmUso = null, refMovimentacoes = null;
+        let firebaseAtivo = false;
+
+        // Inicializa Firebase ou usa modo LocalStorage
+        try {
+            if (firebaseConfig.apiKey !== "SUA_API_KEY") {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.database();
+                refEstoque = db.ref('estoque_ab');
+                refEmUso = db.ref('em_uso_ab');
+                refMovimentacoes = db.ref('movimentacoes_ab');
+                firebaseAtivo = true;
+            } else {
+                console.warn("Firebase não configurado. Utilizando o LocalStorage para testes locais.");
+            }
+        } catch (e) {
+            console.error("Erro na inicialização do Firebase:", e);
+        }
+
+        const HASH_SENHA_AUDITOR = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3"; 
+
+        let listaEstoque = [];
+        let listaEmUso = [];
+        let listaMovimentacoes = [];
+        let imagemBase64Temp = "";
+        let acaoPendenteAuditor = null;
+        let itemPendenteId = null;
+
+        let chartCatInstance = null;
+        let chartTipoInstance = null;
+
+        let canvasAssinatura, ctxAssinatura;
+        let desenhando = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarEstoqueAB();
+            carregarEmUsoAB();
+            carregarMovimentacoesAB();
+            inicializarCanvasAssinatura();
+        });
+
+        function trocarGuia(tabId, evt) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) targetTab.classList.add('active');
+
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
+            }
+
+            if (tabId === 'dashboard') {
+                renderizarGraficosAB();
+            }
+        }
+
+        function abrirModal(idModal) { document.getElementById(idModal).classList.add('active'); }
+        function fecharModal(idModal) {
+            document.getElementById(idModal).classList.remove('active');
+            if(idModal === 'modalSenhaAuditor') {
+                document.getElementById('senhaAuditorInput').value = '';
+                acaoPendenteAuditor = null;
+                itemPendenteId = null;
+            }
+        }
+
+        function inicializarCanvasAssinatura() {
+            canvasAssinatura = document.getElementById('canvasAssinatura');
+            if (!canvasAssinatura) return;
+
+            ctxAssinatura = canvasAssinatura.getContext('2d');
+            canvasAssinatura.width = canvasAssinatura.offsetWidth || 400;
+            canvasAssinatura.height = 150;
+
+            ctxAssinatura.strokeStyle = "#000000";
+            ctxAssinatura.lineWidth = 2;
+
+            canvasAssinatura.addEventListener('mousedown', iniciarDesenho);
+            canvasAssinatura.addEventListener('mousemove', desenhar);
+            canvasAssinatura.addEventListener('mouseup', pararDesenho);
+            canvasAssinatura.addEventListener('mouseleave', pararDesenho);
+
+            canvasAssinatura.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                iniciarDesenho({ clientX: touch.clientX, clientY: touch.clientY });
+                e.preventDefault();
+            });
+
+            canvasAssinatura.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                desenhar({ clientX: touch.clientX, clientY: touch.clientY });
+                e.preventDefault();
+            });
+
+            canvasAssinatura.addEventListener('touchend', pararDesenho);
+        }
+
+        function iniciarDesenho(e) {
+            desenhando = true;
+            const rect = canvasAssinatura.getBoundingClientRect();
+            ctxAssinatura.beginPath();
+            ctxAssinatura.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function desenhar(e) {
+            if (!desenhando) return;
+            const rect = canvasAssinatura.getBoundingClientRect();
+            ctxAssinatura.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            ctxAssinatura.stroke();
+        }
+
+        function pararDesenho() { desenhando = false; }
+        function limparAssinatura() {
+            if (ctxAssinatura) {
+                ctxAssinatura.clearRect(0, 0, canvasAssinatura.width, canvasAssinatura.height);
+            }
+        }
+
+        function obterAssinaturaBase64() {
+            const blank = document.createElement('canvas');
+            blank.width = canvasAssinatura.width;
+            blank.height = canvasAssinatura.height;
+            if (canvasAssinatura.toDataURL() === blank.toDataURL()) return "";
+            return canvasAssinatura.toDataURL('image/png');
+        }
+
+        function previewImagem(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 300;
+                    const scaleFactor = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleFactor;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    imagemBase64Temp = canvas.toDataURL('image/jpeg', 0.6);
+                    document.getElementById('imgPreview').src = imagemBase64Temp;
+                    document.getElementById('boxPreview').style.display = 'block';
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function abrirFotoAmpliada(src) {
+            document.getElementById('imgModalAmpliada').src = src;
+            abrirModal('modalFoto');
+        }
+
+        async function sha256(str) {
+            const buf = await crypto.subtle.digest("SHA-256", new TextEncoder("UTF-8").encode(str));
+            return Array.prototype.map.call(new Uint8Array(buf), x => (('00' + x.toString(16)).slice(-2))).join('');
+        }
+
+        function solicitarSenhaAuditor(acao, itemId) {
+            acaoPendenteAuditor = acao;
+            itemPendenteId = itemId;
+            abrirModal('modalSenhaAuditor');
+        }
+
+        async function confirmarAcaoAuditor() {
+            const senhaDigitada = document.getElementById('senhaAuditorInput').value.trim();
+            if (!senhaDigitada) return alert('Digite a senha.');
+
+            const hashInput = await sha256(senhaDigitada);
+            if (hashInput === HASH_SENHA_AUDITOR) {
+                fecharModal('modalSenhaAuditor');
+                if (acaoPendenteAuditor === 'excluir') executarExclusaoItem(itemPendenteId);
+                else if (acaoPendenteAuditor === 'editar') abrirModalEditarItem(itemPendenteId);
+            } else {
+                alert('Senha do Auditor incorreta!');
+            }
+        }
+
+        function salvarNovoItemAB(event) {
+            event.preventDefault();
+
+            const btn = document.getElementById('btnSalvarItem');
+            btn.disabled = true;
+            btn.innerHTML = '⌛ Salvando...';
+
+            const nome = document.getElementById('cadNome').value.trim();
+            const tipo = document.getElementById('cadTipoEstoque').value;
+            const categoria = document.getElementById('cadCategoria').value;
+            const qtd = parseInt(document.getElementById('cadQtd').value, 10);
+            const local = document.getElementById('cadLocal').value.trim();
+
+            if (!nome || isNaN(qtd) || qtd < 1) {
+                alert('Preencha os campos obrigatórios corretamente.');
+                btn.disabled = false;
+                btn.innerHTML = '💾 Salvar Item no Estoque A&B';
+                return;
+            }
+
+            const novoId = firebaseAtivo ? refEstoque.push().key : 'item_' + Date.now();
+            const itemData = {
+                id: novoId,
+                nome: nome,
+                tipo: tipo,
+                categoria: categoria,
+                qtdTotal: qtd,
+                qtdDisponivel: qtd,
+                localizacao: local || 'Não informada',
+                foto: imagemBase64Temp || '',
+                dataCadastro: new Date().toISOString()
+            };
+
+            if (firebaseAtivo) {
+                refEstoque.child(novoId).set(itemData)
+                    .then(() => finalizarCadastro())
+                    .catch(error => {
+                        alert('Erro Firebase: ' + error.message);
+                        btn.disabled = false;
+                        btn.innerHTML = '💾 Salvar Item no Estoque A&B';
+                    });
+            } else {
+                listaEstoque.push(itemData);
+                localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
+                finalizarCadastro();
+                renderizarTabelasEstoque();
+                preencherSelectBalcao();
+            }
+
+            function finalizarCadastro() {
+                alert('Item "' + nome + '" cadastrado com sucesso!');
+                document.getElementById('formCadItem').reset();
+                document.getElementById('boxPreview').style.display = 'none';
+                imagemBase64Temp = "";
+                btn.disabled = false;
+                btn.innerHTML = '💾 Salvar Item no Estoque A&B';
+
+                if (tipo === 'mobilia') trocarGuia('estoqueMobilia');
+                else if (tipo === 'rouparia') trocarGuia('estoqueRouparia');
+                else if (tipo === 'materiais') trocarGuia('estoqueMateriais');
+            }
+        }
+
+        function carregarEstoqueAB() {
+            if (firebaseAtivo) {
+                refEstoque.on('value', snapshot => {
+                    listaEstoque = [];
+                    const data = snapshot.val();
+                    if (data) Object.keys(data).forEach(key => listaEstoque.push({ id: key, ...data[key] }));
+                    renderizarTabelasEstoque();
+                    preencherSelectBalcao();
+                });
+            } else {
+                const localData = localStorage.getItem('estoque_ab');
+                listaEstoque = localData ? JSON.parse(localData) : [];
+                renderizarTabelasEstoque();
+                preencherSelectBalcao();
+            }
+        }
+
+        function renderizarTabelasEstoque() {
+            const tbMobilia = document.getElementById('tbEstoqueMobilia');
+            const tbRouparia = document.getElementById('tbEstoqueRouparia');
+            const tbMateriais = document.getElementById('tbEstoqueMateriais');
+
+            tbMobilia.innerHTML = ''; tbRouparia.innerHTML = ''; tbMateriais.innerHTML = '';
+
+            listaEstoque.forEach(item => {
+                const tr = document.createElement('tr');
+                const fotoHtml = item.foto 
+                    ? `<img src="${item.foto}" class="img-thumb" onclick="abrirFotoAmpliada('${item.foto}')" alt="Foto">` 
+                    : `<span style="color:#aaa; font-size:0.75rem;">Sem foto</span>`;
+
+                tr.innerHTML = `
+                    <td>${fotoHtml}</td>
+                    <td><strong>${item.nome}</strong></td>
+                    <td>${item.categoria}</td>
+                    <td>${item.localizacao}</td>
+                    <td>${item.qtdTotal}</td>
+                    <td><span style="color: ${item.qtdDisponivel > 0 ? 'green' : 'red'}; font-weight: bold;">${item.qtdDisponivel}</span></td>
+                    <td>
+                        <button class="btn btn-warning" style="padding: 2px 8px; font-size: 0.75rem;" onclick="solicitarSenhaAuditor('editar', '${item.id}')">✏️ Editar</button>
+                        <button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.75rem;" onclick="solicitarSenhaAuditor('excluir', '${item.id}')">🗑️ Excluir</button>
+                    </td>
+                `;
+
+                if (item.tipo === 'mobilia') tbMobilia.appendChild(tr);
+                else if (item.tipo === 'rouparia') tbRouparia.appendChild(tr);
+                else if (item.tipo === 'materiais') tbMateriais.appendChild(tr);
+            });
+        }
+
+        function carregarEmUsoAB() {
+            if (firebaseAtivo) {
+                refEmUso.on('value', snapshot => {
+                    listaEmUso = [];
+                    const data = snapshot.val();
+                    if (data) Object.keys(data).forEach(key => listaEmUso.push({ id: key, ...data[key] }));
+                    renderizarTabelaEmUso();
+                });
+            } else {
+                const localData = localStorage.getItem('em_uso_ab');
+                listaEmUso = localData ? JSON.parse(localData) : [];
+                renderizarTabelaEmUso();
+            }
+        }
+
+        function renderizarTabelaEmUso() {
+            const tbody = document.getElementById('tbEmUso');
+            tbody.innerHTML = '';
+
+            if (listaEmUso.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#777;">Nenhum item pendente de devolução no momento.</td></tr>';
+                return;
+            }
+
+            listaEmUso.forEach(itemUso => {
+                const tr = document.createElement('tr');
+                const assinaturaHtml = itemUso.assinatura 
+                    ? `<button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" onclick="abrirFotoAmpliada('${itemUso.assinatura}')">✍️ Ver</button>` 
+                    : `<span style="color:#aaa; font-size:0.75rem;">Sem assinatura</span>`;
+
+                tr.innerHTML = `
+                    <td>${itemUso.dataHora}</td>
+                    <td><strong>${itemUso.itemNome}</strong></td>
+                    <td>${itemUso.categoria}</td>
+                    <td><span style="color:#ef6c00; font-weight:bold;">${itemUso.qtdEmUso}</span></td>
+                    <td>${itemUso.responsavel}</td>
+                    <td>${itemUso.motivo}</td>
+                    <td>${assinaturaHtml}</td>
+                    <td>
+                        <button class="btn btn-success" style="padding: 2px 8px; font-size: 0.75rem;" onclick="abrirModalDevolucao('${itemUso.id}', '${itemUso.itemId}', '${itemUso.itemNome}', ${itemUso.qtdEmUso})">↩️ Devolver</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function abrirModalDevolucao(emUsoId, itemId, itemNome, qtdEmUso) {
+            document.getElementById('devEmUsoId').value = emUsoId;
+            document.getElementById('devItemId').value = itemId;
+            document.getElementById('devItemNome').value = itemNome;
+            document.getElementById('devQtdEmUso').value = qtdEmUso;
+            document.getElementById('devQtdDevolvida').value = qtdEmUso;
+            document.getElementById('devQtdDevolvida').max = qtdEmUso;
+
+            abrirModal('modalDevolucao');
+        }
+
+        // --- FUNÇÃO DE DEVOLUÇÃO CORRIGIDA ---
+        function confirmarDevolucaoAB(event) {
+            event.preventDefault();
+
+            const emUsoId = document.getElementById('devEmUsoId').value;
+            const itemId = document.getElementById('devItemId').value;
+            const qtdEmUsoAtual = parseInt(document.getElementById('devQtdEmUso').value, 10);
+            const qtdDevolvida = parseInt(document.getElementById('devQtdDevolvida').value, 10);
+
+            if (isNaN(qtdDevolvida) || qtdDevolvida <= 0 || qtdDevolvida > qtdEmUsoAtual) {
+                return alert('Quantidade devolvida inválida.');
+            }
+
+            const itemEstoque = listaEstoque.find(i => i.id === itemId);
+            if (!itemEstoque) return alert('Erro ao localizar o item no estoque.');
+
+            const novaQtdDisponivel = itemEstoque.qtdDisponivel + qtdDevolvida;
+            const dataHoraAtual = new Date().toLocaleString('pt-BR');
+
+            if (firebaseAtivo) {
+                refEstoque.child(itemId).update({ qtdDisponivel: novaQtdDisponivel })
+                    .then(() => {
+                        if (qtdDevolvida === qtdEmUsoAtual) return refEmUso.child(emUsoId).remove();
+                        else return refEmUso.child(emUsoId).update({ qtdEmUso: qtdEmUsoAtual - qtdDevolvida });
+                    })
+                    .then(() => {
+                        return refMovimentacoes.push().set({
+                            itemId: itemId, itemNome: itemEstoque.nome, categoria: itemEstoque.categoria,
+                            tipoSaida: '↩️ Devolução ao Estoque', qtd: qtdDevolvida, responsavel: 'Retorno de Empréstimo',
+                            motivo: 'Devolução realizada no Balcão', dataHora: dataHoraAtual
+                        });
+                    })
+                    .then(() => {
+                        finalizarDevolucao();
+                    })
+                    .catch(err => alert('Erro Firebase: ' + err.message));
+            } else {
+                itemEstoque.qtdDisponivel = novaQtdDisponivel;
+                localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
+
+                if (qtdDevolvida === qtdEmUsoAtual) {
+                    listaEmUso = listaEmUso.filter(u => u.id !== emUsoId);
+                } else {
+                    const indexUso = listaEmUso.findIndex(u => u.id === emUsoId);
+                    if (indexUso !== -1) listaEmUso[indexUso].qtdEmUso = qtdEmUsoAtual - qtdDevolvida;
+                }
+                localStorage.setItem('em_uso_ab', JSON.stringify(listaEmUso));
+
+                listaMovimentacoes.unshift({
+                    id: 'mov_' + Date.now(), itemId: itemId, itemNome: itemEstoque.nome, categoria: itemEstoque.categoria,
+                    tipoSaida: '↩️ Devolução ao Estoque', qtd: qtdDevolvida, responsavel: 'Retorno de Empréstimo',
+                    motivo: 'Devolução realizada no Balcão', dataHora: dataHoraAtual
+                });
+                localStorage.setItem('movimentacoes_ab', JSON.stringify(listaMovimentacoes));
+
+                finalizarDevolucao();
+            }
+
+            function finalizarDevolucao() {
+                alert('Devolução registrada com sucesso!');
+                fecharModal('modalDevolucao');
+                renderizarTabelasEstoque();
+                renderizarTabelaEmUso();
+                renderizarTabelaHistorico();
+                preencherSelectBalcao();
+            }
+        }
+
+        function filtrarTabela(idTabela, idInput) {
+            const input = document.getElementById(idInput);
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById(idTabela);
+            const trs = tbody.getElementsByTagName('tr');
+
+            for (let i = 0; i < trs.length; i++) {
+                const textoLinha = trs[i].textContent || trs[i].innerText;
+                trs[i].style.display = textoLinha.toLowerCase().indexOf(filter) > -1 ? "" : "none";
+            }
+        }
+
+        function abrirModalEditarItem(id) {
+            const item = listaEstoque.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('editId').value = item.id;
+            document.getElementById('editNome').value = item.nome;
+            document.getElementById('editTipoEstoque').value = item.tipo;
+            document.getElementById('editCategoria').value = item.categoria;
+            document.getElementById('editLocal').value = item.localizacao;
+            document.getElementById('editQtdTotal').value = item.qtdTotal;
+            document.getElementById('editQtdDisponivel').value = item.qtdDisponivel;
+
+            abrirModal('modalEditarItem');
+        }
+
+        function salvarEdicaoItemAB(event) {
+            event.preventDefault();
+            const id = document.getElementById('editId').value;
+            const data = {
+                nome: document.getElementById('editNome').value.trim(),
+                tipo: document.getElementById('editTipoEstoque').value,
+                categoria: document.getElementById('editCategoria').value,
+                localizacao: document.getElementById('editLocal').value.trim(),
+                qtdTotal: parseInt(document.getElementById('editQtdTotal').value, 10),
+                qtdDisponivel: parseInt(document.getElementById('editQtdDisponivel').value, 10)
+            };
+
+            if (firebaseAtivo) {
+                refEstoque.child(id).update(data)
+                    .then(() => { alert('Item atualizado com sucesso!'); fecharModal('modalEditarItem'); });
+            } else {
+                const index = listaEstoque.findIndex(i => i.id === id);
+                if (index !== -1) {
+                    listaEstoque[index] = { ...listaEstoque[index], ...data };
+                    localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
+                    renderizarTabelasEstoque();
+                    fecharModal('modalEditarItem');
+                }
+            }
+        }
+
+        function executarExclusaoItem(id) {
+            if (confirm('Deseja excluir este item permanentemente?')) {
+                if (firebaseAtivo) {
+                    refEstoque.child(id).remove().then(() => alert('Item excluído com sucesso.'));
+                } else {
+                    listaEstoque = listaEstoque.filter(i => i.id !== id);
+                    localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
+                    renderizarTabelasEstoque();
+                    preencherSelectBalcao();
+                }
+            }
+        }
+
+        function preencherSelectBalcao() {
+            const select = document.getElementById('saidaItem');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">-- Selecione o Item --</option>';
+            listaEstoque.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = `${item.nome} (${item.categoria}) - Disp: ${item.qtdDisponivel}`;
+                select.appendChild(opt);
+            });
+        }
+
+        function atualizarEstoqueDisponivelBalcao() {
+            const itemId = document.getElementById('saidaItem').value;
+            const inputQtdDisp = document.getElementById('saidaQtdDisponivel');
+            const inputCat = document.getElementById('saidaCategoria');
+
+            const item = listaEstoque.find(i => i.id === itemId);
+            if (item) {
+                inputQtdDisp.value = item.qtdDisponivel;
+                inputCat.value = item.categoria;
+            } else {
+                inputQtdDisp.value = '';
+                inputCat.value = '';
+            }
+        }
+
+        function registrarSaidaBalcaoAB(event) {
+            event.preventDefault();
+
+            const btn = event.submitter || document.querySelector('#formSaidaBalcao button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.innerHTML = '⌛ Processando...'; }
+
+            const itemId = document.getElementById('saidaItem').value;
+            const tipoMovimento = document.getElementById('saidaTipoMovimento').value;
+            const qtdSaida = parseInt(document.getElementById('saidaQtd').value, 10);
+            const responsavel = document.getElementById('saidaResponsavel').value.trim();
+            const motivo = document.getElementById('saidaMotivo').value.trim();
+            const assinaturaBase64 = obterAssinaturaBase64();
+
+            const item = listaEstoque.find(i => i.id === itemId);
+            
+            if (!item || isNaN(qtdSaida) || qtdSaida <= 0 || qtdSaida > item.qtdDisponivel) {
+                alert('Quantidade solicitada é inválida ou maior do que o estoque disponível.');
+                if (btn) { btn.disabled = false; btn.innerHTML = '✅ Confirmar Saída'; }
+                return;
+            }
+
+            let novaQtdTotal = item.qtdTotal;
+if (tipoMovimento !== 'emprestimo') {
+    novaQtdTotal = item.qtdTotal - qtdSaida;
+}
+            
+            const novaQtdDisponivel = item.qtdDisponivel - qtdSaida;
+            const dataHoraAtual = new Date().toLocaleString('pt-BR');
+
+            if (firebaseAtivo) {
+                refEstoque.child(itemId).update({ 
+    qtdTotal: novaQtdTotal,
+    qtdDisponivel: novaQtdDisponivel 
+})
+                    .then(() => {
+                        if (tipoMovimento === 'emprestimo') {
+                            return refEmUso.push().set({
+                                itemId, itemNome: item.nome, categoria: item.categoria,
+                                qtdEmUso: qtdSaida, responsavel, motivo, assinatura: assinaturaBase64, dataHora: dataHoraAtual
+                            });
+                        }
+                    })
+                    .then(() => {
+                        return refMovimentacoes.push().set({
+                            itemId, itemNome: item.nome, categoria: item.categoria,
+                            tipoSaida: tipoMovimento === 'emprestimo' ? '🔄 Empréstimo' : '🔴 Saída Definitiva',
+                            qtd: qtdSaida, responsavel, motivo, dataHora: dataHoraAtual
+                        });
+                    })
+                    .then(() => {
+                        finalizarSaida();
+                    })
+                    .catch(err => {
+                        alert('Erro Firebase: ' + err.message);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '✅ Confirmar Saída'; }
+                    });
+            } else {
+                item.qtdDisponivel = novaQtdDisponivel;
+                localStorage.setItem('estoque_ab', JSON.stringify(listaEstoque));
+
+                if (tipoMovimento === 'emprestimo') {
+                    listaEmUso.push({
+                        id: 'emuso_' + Date.now(), itemId, itemNome: item.nome, categoria: item.categoria,
+                        qtdEmUso: qtdSaida, responsavel, motivo, assinatura: assinaturaBase64, dataHora: dataHoraAtual
+                    });
+                    localStorage.setItem('em_uso_ab', JSON.stringify(listaEmUso));
+                }
+
+                listaMovimentacoes.unshift({
+                    id: 'mov_' + Date.now(), itemId, itemNome: item.nome, categoria: item.categoria,
+                    tipoSaida: tipoMovimento === 'emprestimo' ? '🔄 Empréstimo' : '🔴 Saída Definitiva',
+                    qtd: qtdSaida, responsavel, motivo, dataHora: dataHoraAtual
+                });
+                localStorage.setItem('movimentacoes_ab', JSON.stringify(listaMovimentacoes));
+
+                finalizarSaida();
+            }
+
+            function finalizarSaida() {
+                alert('Saída de "' + item.nome + '" registrada com sucesso!');
+                document.getElementById('formSaidaBalcao').reset();
+                limparAssinatura();
+                renderizarTabelasEstoque();
+                renderizarTabelaEmUso();
+                renderizarTabelaHistorico();
+                preencherSelectBalcao();
+                if (btn) { btn.disabled = false; btn.innerHTML = '✅ Confirmar Saída'; }
+            }
+        }
+
+        function carregarMovimentacoesAB() {
+            if (firebaseAtivo) {
+                refMovimentacoes.on('value', snapshot => {
+                    listaMovimentacoes = [];
+                    const data = snapshot.val();
+                    if (data) Object.keys(data).forEach(key => listaMovimentacoes.push({ id: key, ...data[key] }));
+                    listaMovimentacoes.reverse();
+                    renderizarTabelaHistorico();
+                });
+            } else {
+                const localData = localStorage.getItem('movimentacoes_ab');
+                listaMovimentacoes = localData ? JSON.parse(localData) : [];
+                renderizarTabelaHistorico();
+            }
+        }
+
+        function renderizarTabelaHistorico() {
+            const tbody = document.getElementById('tbHistoricoMovimentacoes');
+            tbody.innerHTML = '';
+
+            if (listaMovimentacoes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#777;">Nenhuma movimentação registrada.</td></tr>';
+                return;
+            }
+
+            listaMovimentacoes.forEach(mov => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${mov.dataHora}</td>
+                    <td><strong>${mov.itemNome}</strong></td>
+                    <td>${mov.tipoSaida}</td>
+                    <td>${mov.categoria}</td>
+                    <td>${mov.qtd}</td>
+                    <td>${mov.responsavel}</td>
+                    <td>${mov.motivo}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportarRelatorioCSVAB() {
+            if (listaMovimentacoes.length === 0) return alert('Sem dados para exportar.');
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "Data/Hora;Item;Tipo de Saida;Categoria;Quantidade;Responsavel;Motivo/Destino\n";
+
+            listaMovimentacoes.forEach(m => {
+                csvContent += [`"${m.dataHora}"`, `"${m.itemNome}"`, `"${m.tipoSaida}"`, `"${m.categoria}"`, `"${m.qtd}"`, `"${m.responsavel}"`, `"${m.motivo}"`].join(";") + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `relatorio_estoque_AB_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function renderizarGraficosAB() {
+            if (typeof Chart === 'undefined') return;
+
+            const categoriasCount = {};
+            listaEstoque.forEach(item => {
+                categoriasCount[item.categoria] = (categoriasCount[item.categoria] || 0) + item.qtdTotal;
+            });
+
+            const ctxCat = document.getElementById('chartCategorias');
+            if (ctxCat) {
+                if (chartCatInstance) chartCatInstance.destroy();
+                chartCatInstance = new Chart(ctxCat, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(categoriasCount),
+                        datasets: [{
+                            data: Object.values(categoriasCount),
+                            backgroundColor: ['#00463F', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
+                        }]
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'Total por Categoria' } } }
+                });
+            }
+
+            const tiposCount = { 'Mobília': 0, 'Rouparia': 0, 'Materiais A&B': 0 };
+            listaEstoque.forEach(item => {
+                if (item.tipo === 'mobilia') tiposCount['Mobília'] += item.qtdTotal;
+                else if (item.tipo === 'rouparia') tiposCount['Rouparia'] += item.qtdTotal;
+                else if (item.tipo === 'materiais') tiposCount['Materiais A&B'] += item.qtdTotal;
+            });
+
+            const ctxTipo = document.getElementById('chartTiposEstoque');
+                if (chartTipoInstance) chartTipoInstance.destroy();
+                chartTipoInstance = new Chart(ctxTipo, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(tiposCount),
+                        datasets: [{
+                            data: Object.values(tiposCount),
+                            backgroundColor: ['#00463F', '#10b981', '#f59e0b']
+                        }]
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'Tipos de Estoque' } } }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
